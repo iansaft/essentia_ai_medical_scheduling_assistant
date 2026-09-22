@@ -10,7 +10,7 @@ Estado atual da suíte:
 
 ```text
 53 tests passed
-93.04% total coverage
+94.28% total coverage
 minimum required coverage: 85%
 ```
 

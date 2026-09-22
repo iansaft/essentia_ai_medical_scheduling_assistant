@@ -116,16 +116,4 @@ Não foram definidos como requisitos centrais neste estágio:
 
 ## 5. Estado de implementação
 
-| Capacidade | Estado |
-|---|---|
-| Health check | Implementado |
-| Consulta de paciente | Implementado |
-| Consulta de serviços | Implementado |
-| Métodos de pagamento | Implementado |
-| Disponibilidade | Implementado |
-| Criar agendamento | Planejado |
-| Cancelar agendamento | Planejado |
-| Idempotência em comandos | Estrutura de banco criada / integração planejada |
-| n8n + Agent | Planejado |
-| STT/TTS | Planejado |
-| Gmail | Planejado |
+O status de implementação é mantido em [docs/README.md — Estado atual](./README.md#estado-atual).

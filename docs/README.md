@@ -6,7 +6,7 @@ Esta pasta concentra as principais decisões de produto, domínio e engenharia d
 
 | Documento | Conteúdo |
 |---|---|
-| [system-requirements.md](./system-requirements.md) | Escopo, requisitos funcionais, requisitos não funcionais e estado atual |
+| [system-requirements.md](./system-requirements.md) | Escopo, requisitos funcionais e requisitos não funcionais |
 | [business-rules.md](./business-rules.md) | Regras de negócio de pacientes, catálogo, disponibilidade, agendamento e cancelamento |
 | [architecture.md](./architecture.md) | Arquitetura, responsabilidades por componente, fluxos e boundaries |
 | [data-model.md](./data-model.md) | Modelo relacional, invariantes e constraints relevantes |
@@ -30,6 +30,10 @@ Princípio central:
 - listagem e consulta de serviços;
 - consulta de métodos de pagamento por serviço;
 - consulta de disponibilidade com filtros opcionais;
+- consulta de agendamento por ID;
+- criação de agendamento (idempotente);
+- cancelamento de agendamento (idempotente);
+- idempotência completa dos comandos de escrita;
 - PostgreSQL com migrations e seeds versionadas;
 - persistência SQL tipada gerada via sqlc;
 - documentação OpenAPI gerada automaticamente pelo FastAPI;
@@ -37,9 +41,6 @@ Princípio central:
 
 ### Planejado / próxima etapa
 
-- criação de agendamento;
-- cancelamento de agendamento;
-- idempotência completa dos comandos de escrita;
 - integração n8n;
 - AI Agent com tool/function calling;
 - entrada de texto e áudio com STT;
