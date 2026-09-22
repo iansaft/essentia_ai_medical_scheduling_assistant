@@ -34,6 +34,7 @@ def list_availability(
         UUID | None,
         Query(
             description="Filter slots by doctor.",
+            example="0dfc6223-6a11-4d90-a979-bd511bc1d6a9",
             examples=[
                 "0dfc6223-6a11-4d90-a979-bd511bc1d6a9",
             ],
@@ -44,6 +45,7 @@ def list_availability(
         UUID | None,
         Query(
             description="Filter slots by medical service.",
+            example="e2fb5edd-efbd-4d60-9de3-d6650e31562f",
             examples=[
                 "e2fb5edd-efbd-4d60-9de3-d6650e31562f",
             ],
@@ -58,6 +60,8 @@ def list_availability(
                 "Filter slots by business date "
                 "in America/Sao_Paulo timezone."
             ),
+            example="2027-04-12",
+            examples=["2027-04-12"],
         ),
     ] = None,
 ) -> list[AvailableSlotResponse]:

@@ -39,6 +39,7 @@ IdempotencyKey = Annotated[
             "Unique key used to safely retry mutating requests "
             "without duplicating their effects."
         ),
+        example="7ff768c5-8f88-4554-8ae6-afcf3b6f1e01",
         examples=["7ff768c5-8f88-4554-8ae6-afcf3b6f1e01"],
     ),
 ]
@@ -98,6 +99,7 @@ def get_appointment(
         UUID,
         Path(
             description="Unique appointment identifier.",
+            example="8029d8d3-8fff-4dcc-a2ef-2ae0808bf95e",
             examples=[
                 "8029d8d3-8fff-4dcc-a2ef-2ae0808bf95e",
             ],
@@ -161,6 +163,7 @@ def cancel_appointment(
         UUID,
         Path(
             description="Unique appointment identifier.",
+            example="8029d8d3-8fff-4dcc-a2ef-2ae0808bf95e",
             examples=[
                 "8029d8d3-8fff-4dcc-a2ef-2ae0808bf95e",
             ],

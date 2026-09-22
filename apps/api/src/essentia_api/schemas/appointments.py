@@ -14,14 +14,28 @@ AppointmentStatus = Literal[
 
 
 class CreateAppointmentRequest(BaseModel):
-    patient_id: UUID
-    slot_id: UUID
+    patient_id: UUID = Field(
+        examples=["3cdf666b-186d-44e6-bce9-5e572e7038f9"],
+        json_schema_extra={
+            "example": "3cdf666b-186d-44e6-bce9-5e572e7038f9",
+        },
+    )
+    slot_id: UUID = Field(
+        examples=["8e06b231-a27f-4bf3-bc69-7565f20c3f7d"],
+        json_schema_extra={
+            "example": "8e06b231-a27f-4bf3-bc69-7565f20c3f7d",
+        },
+    )
 
 
 class CancelAppointmentRequest(BaseModel):
     cancellation_reason: str = Field(
         min_length=3,
         max_length=500,
+        examples=["Patient requested cancellation."],
+        json_schema_extra={
+            "example": "Patient requested cancellation.",
+        },
     )
 
 

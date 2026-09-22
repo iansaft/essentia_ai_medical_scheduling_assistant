@@ -31,6 +31,7 @@ def get_patient(
         UUID,
         Path(
             description="Unique patient identifier.",
+            example="3cdf666b-186d-44e6-bce9-5e572e7038f9",
             examples=[
                 "3cdf666b-186d-44e6-bce9-5e572e7038f9",
             ],

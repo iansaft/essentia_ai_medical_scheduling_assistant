@@ -70,7 +70,7 @@ VALUES (
         300.00,
         'BRL',
         (
-            (CURRENT_DATE - 1) + TIME '10:50'
+            DATE '2026-09-19' + TIME '10:50'
         ) AT TIME ZONE 'America/Sao_Paulo'
     );
 
