@@ -1,0 +1,25 @@
+version: "2"
+
+plugins:
+  - name: python
+    wasm:
+      url: https://github.com/rayakame/sqlc-gen-better-python/releases/download/v0.8.0/sqlc-gen-better-python.wasm
+      sha256: c98cffe9024c3c8e802426a4babec460c2d17adc440181324e3d707b1e723c48
+
+sql:
+  - engine: postgresql
+
+    schema:
+      - "../../db/migrations"
+
+    queries:
+      - "src/essentia_api/db/queries"
+
+    codegen:
+      - out: "src/essentia_api/db/generated"
+        plugin: python
+        options:
+          package: "essentia_api.db.generated"
+          emit_init_file: true
+          sql_driver: "psycopg_sync"
+          model_type: "dataclass"

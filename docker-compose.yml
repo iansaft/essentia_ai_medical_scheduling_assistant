@@ -1,0 +1,105 @@
+services:
+  postgres:
+    image: postgres:18.4-alpine3.24
+    container_name: ${PG_CNAME:-postgres}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PG_SUPERUSER}
+      POSTGRES_PASSWORD: ${PG_SUPERUSER_PW}
+      POSTGRES_DB: ${PG_DEFAULT_DB:-postgres}
+    ports:
+      - "${PG_PORT:-5432}:5432"
+    volumes:
+      - ${PG_DATA_PATH}:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_SUPERUSER} -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - essentia_ai_assistent_net
+  
+  migrations:
+    image: ${GOLANG_MIGRATE_IMAGE:-migrate/migrate:v4.20.1}
+    container_name: ${GOLANG_MIGRATE_CNAME:-golang_migrate}
+    restart: "no"
+    volumes:
+      - ${MIGRATIONS_PATH}:/migrations:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - -path=/migrations
+      - -database=postgres://${PG_SUPERUSER}:${PG_SUPERUSER_PW}@${PG_CNAME}:${PG_PORT}/${PG_DEFAULT_DB}?sslmode=${PG_SUPERUSER_SSL_MODE}
+      - up
+    networks:
+      - essentia_ai_assistent_net
+
+  seeds:
+    image: ${GOLANG_MIGRATE_IMAGE:-migrate/migrate:v4.20.1}
+    container_name: ${GOLANG_MIGRATE_CNAME:-essentia_ai_golang_migrate}_seeds
+    restart: "no"
+    volumes:
+      - ${SEEDS_PATH}:/seeds:ro
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    command:
+      - -path=/seeds
+      - -database=postgres://${PG_SUPERUSER}:${PG_SUPERUSER_PW}@${PG_CNAME}:${PG_PORT}/${PG_DEFAULT_DB}?sslmode=${PG_SUPERUSER_SSL_MODE}&x-migrations-table=seed_migrations
+      - up
+    networks:
+      - essentia_ai_assistent_net
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: ${API_CNAME:-essentia_ai_assistent_api}
+    restart: unless-stopped
+    environment:
+      APP_ENV: ${NODE_ENV:-development}
+      APP_HOST: ${APP_HOST:-127.0.0.1}
+      APP_PORT: ${APP_PORT:-8000}
+      API_DB_HOST: ${API_DB_HOST:-postgres}
+      API_DB_PORT: ${API_DB_PORT:-5432}
+      API_DB_NAME: ${API_DB_NAME:-postgres}
+      API_DB_USER: ${API_DB_USER}
+      API_DB_PW: ${API_DB_PW}
+      API_DB_SSL_MODE: ${PG_SUPERUSER_SSL_MODE:-disable}
+      DB_POOL_MIN_SIZE: ${DB_POOL_MIN_SIZE:-1}
+      DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-10}
+      DB_POOL_TIMEOUT: ${DB_POOL_TIMEOUT:-5}
+      BUSINESS_TIMEZONE: ${BUSINESS_TIMEZONE:-America/Sao_Paulo}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+      seeds:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://${APP_HOST}:${APP_PORT}/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - essentia_ai_assistent_net
+
+volumes:
+  postgres_data:
+
+networks:
+  essentia_ai_assistent_net:
+    driver: bridge
+    name: essentia_ai_assistent_net

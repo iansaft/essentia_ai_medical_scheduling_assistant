@@ -1,0 +1,14 @@
+[run]
+branch = True
+source = essentia_api
+omit =
+    src/essentia_api/db/generated/*
+
+[report]
+show_missing = True
+skip_covered = True
+fail_under = 85
+exclude_lines =
+    pragma: no cover
+    if TYPE_CHECKING:
+    raise NotImplementedError

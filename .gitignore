@@ -1,0 +1,7 @@
+# Environment Variables
+.env
+.env.*
+!.env.example
+
+# Docker
+.docker/postgres/postgres_data
