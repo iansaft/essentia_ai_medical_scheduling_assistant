@@ -60,6 +60,12 @@ Após operações relevantes, o workflow deve ser capaz de enviar confirmação 
 
 O fluxo conversacional deve oferecer mensagens adequadas de abertura e encerramento sem alterar regras transacionais da API.
 
+### RF-12 — Experiência web (camada de apresentação)
+
+A solução deve incluir uma aplicação web que permita selecionar o paciente da demonstração, conversar por texto/áudio com o n8n e consultar o histórico de agendamentos pela API, sem implementar regras de agendamento no browser.
+
+Os requisitos detalhados da camada web (WEB-RF-01…08 e WEB-RNF-01…08) estão em [`web-application.md`](./web-application.md).
+
 ## 3. Requisitos não funcionais
 
 ### RNF-01 — Consistência transacional

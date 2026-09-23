@@ -11,6 +11,7 @@ Esta pasta concentra as principais decisões de produto, domínio e engenharia d
 | [architecture.md](./architecture.md) | Arquitetura, responsabilidades por componente, fluxos e boundaries |
 | [data-model.md](./data-model.md) | Modelo relacional, invariantes e constraints relevantes |
 | [design-decisions.md](./design-decisions.md) | Decisões arquiteturais, trade-offs e alternativas evitadas |
+| [web-application.md](./web-application.md) | Especificação da aplicação web (requisitos WEB-RF/RNF, contratos, decisões WEB-DD) |
 | [testing-and-operations.md](./testing-and-operations.md) | Estratégia de testes, OpenAPI/Postman, observabilidade e operação local |
 
 ## Visão resumida
@@ -26,7 +27,9 @@ Princípio central:
 ### Implementado na API
 
 - health check;
+- listagem de pacientes;
 - consulta de paciente por ID;
+- histórico de agendamentos do paciente;
 - listagem e consulta de serviços;
 - consulta de métodos de pagamento por serviço;
 - consulta de disponibilidade com filtros opcionais;
@@ -34,16 +37,33 @@ Princípio central:
 - criação de agendamento (idempotente);
 - cancelamento de agendamento (idempotente);
 - idempotência completa dos comandos de escrita;
+- health check de readiness do n8n (`GET /health/n8n`);
+- CORS configurável para origens do browser (`API_CORS_ORIGINS`);
 - PostgreSQL com migrations e seeds versionadas;
 - persistência SQL tipada gerada via sqlc;
 - documentação OpenAPI gerada automaticamente pelo FastAPI;
-- coleção Postman derivável do OpenAPI.
+- coleção Postman derivável do `/openapi.json`.
+
+### Implementado na aplicação web
+
+- SPA React + TypeScript + Vite em `apps/web` (spec: [web-application.md](./web-application.md));
+- seleção de paciente com carga via `GET /v1/patients` (WEB-RF-01);
+- chat textual e de áudio com o webhook do n8n, usando o UUID do paciente como `sessionId` (WEB-RF-02…05);
+- histórico de agendamentos em painel somente leitura via `GET /v1/patients/{patient_id}/appointments` (WEB-RF-06);
+- re-fetch do histórico após cada turno concluído e após troca de paciente (WEB-RF-07);
+- isolamento de estado entre pacientes, com abort/ignorância de respostas fora de contexto (WEB-RF-08);
+- estados assíncronos explícitos (carregamento, gravação, erro, histórico possivelmente desatualizado);
+- testes unitários com Vitest + React Testing Library;
+- container Docker (nginx) publicado pelo serviço `web` do Compose.
+
+### Infraestrutura Compose
+
+- serviços `postgres`, `migrate`, `api`, `n8n` e `web` com healthchecks e ordem de dependência;
+- volume de dados do n8n (`.docker/n8n/n8n_data`) versionado fora do git.
 
 ### Planejado / próxima etapa
 
-- integração n8n;
-- AI Agent com tool/function calling;
-- entrada de texto e áudio com STT;
+- confirmação de contratos browser-facing do workflow n8n (webhook de produção, formato de resposta);
 - confirmação por Gmail;
 - resposta por TTS quando aplicável;
 - correlação de logs entre n8n e API.

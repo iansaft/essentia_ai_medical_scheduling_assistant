@@ -6,12 +6,14 @@ A arquitetura separa claramente interpretação probabilística, orquestração,
 
 ```mermaid
 flowchart LR
-    U[Usuário] --> N[n8n]
+    U[Usuário] --> W[Web App<br/>apps/web]
+    W -->|texto/áudio| N[n8n]
     N -->|texto| A[AI Agent]
     N -->|áudio| STT[Speech-to-Text]
     STT --> A
 
     A -->|tool/function call| API[FastAPI]
+    W -->|leituras REST<br/>patients, appointments, health| API
     API --> DB[(PostgreSQL)]
 
     API --> A
@@ -19,8 +21,10 @@ flowchart LR
 
     N --> G[Gmail]
     N --> TTS[Text-to-Speech]
-    N --> U
+    N -->|resposta| W
 ```
+
+A aplicação web é uma camada de apresentação: não implementa regras de agendamento, não decide disponibilidade e não executa mutações de domínio. Conversa (texto/áudio) vai ao n8n; dados determinísticos (seleção de paciente, histórico de agendamentos, health) vão à FastAPI. Detalhes em [`web-application.md`](./web-application.md).
 
 ## 2. Responsabilidades por componente
 
@@ -72,6 +76,8 @@ Responsável por:
 - traduzir conflitos de domínio para HTTP;
 - consultar persistência SQL tipada;
 - expor OpenAPI;
+- aplicar CORS restrito às origens do browser configuradas em `API_CORS_ORIGINS`;
+- expor liveness (`GET /health`) e readiness do n8n (`GET /health/n8n`);
 - controlar o lifecycle da infraestrutura pertencente à instância da aplicação.
 
 A aplicação é criada por uma Application Factory (`create_app`), que recebe configuração explícita quando necessário. O pool de conexões PostgreSQL é criado no lifespan da aplicação e armazenado em `app.state`, evitando estado global de infraestrutura e permitindo isolamento entre diferentes instâncias da API.
@@ -224,6 +230,17 @@ DB: invariantes e persistência
 ### Workflow versus transação
 
 Retries pertencem ao workflow; exatamente-uma-vez não é presumido. A API deve suportar replays através de idempotência.
+
+### Web versus domínio
+
+```text
+Web: apresentação, conversa, seleção de identidade de demonstração
+n8n/Agent: intenção, orquestração, STT/TTS
+API: regras e leituras determinísticas
+DB: invariantes e persistência
+```
+
+A web re-fetcha o histórico após cada turno concluído em vez de inferir mutações a partir do texto do LLM (WEB-RF-07 / WEB-DD-06).
 
 ### OpenAPI versus Postman
 

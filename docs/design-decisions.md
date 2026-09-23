@@ -115,3 +115,11 @@ pgvector pode ser adicionado posteriormente para FAQ ou conhecimento textual sem
 **Motivo:** tornar explícito o ownership da infraestrutura, eliminar dependência de estado global/import-time e permitir que cada instância da aplicação opere com configuração própria.
 
 **Trade-off:** o processo precisa iniciar o Uvicorn em factory mode (`--factory`), mas em troca a aplicação ganha isolamento e testabilidade sem monkey patching de singletons globais.
+
+## DD-17 — Camada web sem regras de domínio
+
+**Decisão:** a SPA em `apps/web` é apenas apresentação e integração: conversa via n8n, leituras determinísticas via FastAPI, sem mutações de agendamento a partir da UI.
+
+**Motivo:** preservar o boundary determinístico (API + PostgreSQL) e evitar duplicar regras de disponibilidade/preço no browser.
+
+**Detalhes e trade-offs do MVP** (request/response síncrono, UUID como `sessionId`, re-fetch como reconciliação): [`web-application.md`](./web-application.md) — WEB-DD-01…10.
