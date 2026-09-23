@@ -1,0 +1,446 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-23T16:34:33Z",
+  "title": "Design System: Essentia AI Medical Scheduling Assistant",
+  "extensions": {
+    "colorMeta": {
+      "brand": {
+        "role": "primary",
+        "displayName": "Aged Brass",
+        "canonical": "#b89b58",
+        "tonalRamp": [
+          "oklch(0.25 0.04 90)",
+          "oklch(0.35 0.05 90)",
+          "oklch(0.45 0.06 90)",
+          "oklch(0.55 0.07 90)",
+          "oklch(0.65 0.07 90)",
+          "oklch(0.75 0.06 90)",
+          "oklch(0.85 0.05 90)",
+          "oklch(0.95 0.03 90)"
+        ]
+      },
+      "brand-light": {
+        "role": "primary",
+        "displayName": "Pale Gilt",
+        "canonical": "#d4c295",
+        "tonalRamp": [
+          "oklch(0.35 0.05 90)",
+          "oklch(0.45 0.06 90)",
+          "oklch(0.55 0.07 90)",
+          "oklch(0.65 0.07 90)",
+          "oklch(0.75 0.06 90)",
+          "oklch(0.82 0.06 90)",
+          "oklch(0.88 0.05 90)",
+          "oklch(0.96 0.03 90)"
+        ]
+      },
+      "brand-dark": {
+        "role": "primary",
+        "displayName": "Burnished Bronze",
+        "canonical": "#8c733d",
+        "tonalRamp": [
+          "oklch(0.22 0.04 85)",
+          "oklch(0.3 0.05 85)",
+          "oklch(0.38 0.05 85)",
+          "oklch(0.46 0.05 85)",
+          "oklch(0.54 0.06 85)",
+          "oklch(0.64 0.06 88)",
+          "oklch(0.76 0.06 90)",
+          "oklch(0.9 0.04 90)"
+        ]
+      },
+      "brand-press": {
+        "role": "primary",
+        "displayName": "Tincture Press",
+        "canonical": "#7a6334",
+        "tonalRamp": [
+          "oklch(0.2 0.04 85)",
+          "oklch(0.28 0.05 85)",
+          "oklch(0.36 0.05 85)",
+          "oklch(0.42 0.05 85)",
+          "oklch(0.5 0.05 85)",
+          "oklch(0.6 0.05 88)",
+          "oklch(0.72 0.05 90)",
+          "oklch(0.88 0.04 90)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Warm Vellum Sheet",
+        "canonical": "oklch(0.995 0.006 90)",
+        "tonalRamp": [
+          "oklch(0.2 0.01 90)",
+          "oklch(0.35 0.01 90)",
+          "oklch(0.5 0.01 90)",
+          "oklch(0.65 0.01 90)",
+          "oklch(0.8 0.01 90)",
+          "oklch(0.9 0.008 90)",
+          "oklch(0.95 0.007 90)",
+          "oklch(0.995 0.006 90)"
+        ]
+      },
+      "raised": {
+        "role": "neutral",
+        "displayName": "Parchment Stock",
+        "canonical": "oklch(0.999 0.003 90)",
+        "tonalRamp": [
+          "oklch(0.2 0.01 90)",
+          "oklch(0.35 0.01 90)",
+          "oklch(0.5 0.01 90)",
+          "oklch(0.65 0.01 90)",
+          "oklch(0.8 0.01 90)",
+          "oklch(0.9 0.006 90)",
+          "oklch(0.96 0.004 90)",
+          "oklch(0.999 0.003 90)"
+        ]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Ledger Canvas",
+        "canonical": "oklch(0.972 0.008 90)",
+        "tonalRamp": [
+          "oklch(0.2 0.01 90)",
+          "oklch(0.35 0.01 90)",
+          "oklch(0.5 0.01 90)",
+          "oklch(0.65 0.01 90)",
+          "oklch(0.8 0.01 90)",
+          "oklch(0.9 0.008 90)",
+          "oklch(0.94 0.008 90)",
+          "oklch(0.972 0.008 90)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Hairline Sand",
+        "canonical": "oklch(0.92 0.012 90)",
+        "tonalRamp": [
+          "oklch(0.25 0.01 90)",
+          "oklch(0.4 0.01 90)",
+          "oklch(0.55 0.012 90)",
+          "oklch(0.7 0.012 90)",
+          "oklch(0.82 0.012 90)",
+          "oklch(0.88 0.012 90)",
+          "oklch(0.92 0.012 90)",
+          "oklch(0.96 0.01 90)"
+        ]
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Rule Sand",
+        "canonical": "oklch(0.87 0.015 90)",
+        "tonalRamp": [
+          "oklch(0.25 0.01 90)",
+          "oklch(0.4 0.012 90)",
+          "oklch(0.55 0.012 90)",
+          "oklch(0.7 0.015 90)",
+          "oklch(0.8 0.015 90)",
+          "oklch(0.87 0.015 90)",
+          "oklch(0.92 0.012 90)",
+          "oklch(0.96 0.01 90)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Walnut Ink",
+        "canonical": "oklch(0.22 0.02 80)",
+        "tonalRamp": [
+          "oklch(0.18 0.02 80)",
+          "oklch(0.22 0.02 80)",
+          "oklch(0.3 0.02 80)",
+          "oklch(0.4 0.018 80)",
+          "oklch(0.5 0.015 80)",
+          "oklch(0.68 0.012 85)",
+          "oklch(0.82 0.01 88)",
+          "oklch(0.94 0.006 90)"
+        ]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Slate Umber",
+        "canonical": "oklch(0.5 0.015 80)",
+        "tonalRamp": [
+          "oklch(0.22 0.02 80)",
+          "oklch(0.3 0.02 80)",
+          "oklch(0.4 0.018 80)",
+          "oklch(0.5 0.015 80)",
+          "oklch(0.6 0.014 82)",
+          "oklch(0.68 0.012 85)",
+          "oklch(0.82 0.01 88)",
+          "oklch(0.94 0.006 90)"
+        ]
+      },
+      "ink-faint": {
+        "role": "neutral",
+        "displayName": "Ghost Sand",
+        "canonical": "oklch(0.68 0.012 85)",
+        "tonalRamp": [
+          "oklch(0.25 0.015 80)",
+          "oklch(0.35 0.015 80)",
+          "oklch(0.45 0.015 82)",
+          "oklch(0.55 0.014 84)",
+          "oklch(0.68 0.012 85)",
+          "oklch(0.78 0.01 88)",
+          "oklch(0.88 0.008 90)",
+          "oklch(0.96 0.005 90)"
+        ]
+      },
+      "ink-inverse": {
+        "role": "neutral",
+        "displayName": "Inverse Parchment",
+        "canonical": "oklch(0.99 0.005 90)",
+        "tonalRamp": [
+          "oklch(0.3 0.01 90)",
+          "oklch(0.45 0.01 90)",
+          "oklch(0.6 0.01 90)",
+          "oklch(0.75 0.008 90)",
+          "oklch(0.85 0.006 90)",
+          "oklch(0.92 0.005 90)",
+          "oklch(0.96 0.005 90)",
+          "oklch(0.99 0.005 90)"
+        ]
+      },
+      "danger": {
+        "role": "state",
+        "displayName": "Clinic Red",
+        "canonical": "oklch(0.5 0.19 25)",
+        "tonalRamp": [
+          "oklch(0.22 0.1 25)",
+          "oklch(0.3 0.14 25)",
+          "oklch(0.4 0.17 25)",
+          "oklch(0.5 0.19 25)",
+          "oklch(0.6 0.16 25)",
+          "oklch(0.72 0.12 25)",
+          "oklch(0.85 0.07 25)",
+          "oklch(0.95 0.03 25)"
+        ]
+      },
+      "success": {
+        "role": "state",
+        "displayName": "Pharmacy Green",
+        "canonical": "oklch(0.5 0.13 155)",
+        "tonalRamp": [
+          "oklch(0.22 0.07 155)",
+          "oklch(0.3 0.1 155)",
+          "oklch(0.4 0.12 155)",
+          "oklch(0.5 0.13 155)",
+          "oklch(0.6 0.12 155)",
+          "oklch(0.72 0.1 155)",
+          "oklch(0.85 0.06 155)",
+          "oklch(0.95 0.03 155)"
+        ]
+      },
+      "warning": {
+        "role": "state",
+        "displayName": "Caution Ochre",
+        "canonical": "oklch(0.52 0.11 70)",
+        "tonalRamp": [
+          "oklch(0.24 0.06 70)",
+          "oklch(0.32 0.08 70)",
+          "oklch(0.42 0.1 70)",
+          "oklch(0.52 0.11 70)",
+          "oklch(0.62 0.1 70)",
+          "oklch(0.74 0.09 70)",
+          "oklch(0.86 0.06 75)",
+          "oklch(0.95 0.03 80)"
+        ]
+      },
+      "info": {
+        "role": "state",
+        "displayName": "Ledger Blue",
+        "canonical": "oklch(0.5 0.13 250)",
+        "tonalRamp": [
+          "oklch(0.22 0.07 250)",
+          "oklch(0.3 0.1 250)",
+          "oklch(0.4 0.12 250)",
+          "oklch(0.5 0.13 250)",
+          "oklch(0.6 0.12 250)",
+          "oklch(0.72 0.1 250)",
+          "oklch(0.85 0.06 250)",
+          "oklch(0.95 0.03 250)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Header wordmark only: Cinzel uppercase, tracking 0.2em."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Empty-state titles above the gold hairline divider."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Panel headers and appointment service names."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Chat markdown, composer text, list content."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase status chips and micro-labels with wide tracking."
+      }
+    },
+    "shadows": [
+      {
+        "name": "panel-lift",
+        "value": "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+        "purpose": "Chat shell, side panels, typing bubble. Flat system; rare structural lift only."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Default control color/border transitions."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "animation-duration: 0.01ms; transition-duration: 0.01ms",
+        "purpose": "prefers-reduced-motion override; honor without !important."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Committed action: send message, send audio. Bronze fill, inverse icon.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\" aria-label=\"Enviar mensagem\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m22 2-7 20-4-9-9-4Z\"/><path d=\"M22 2 11 13\"/></svg></button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 12px; border: none; border-radius: 2px; background: #8c733d; color: oklch(0.99 0.005 90); cursor: pointer; transition: background 0.15s cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-primary:hover { background: #7a6334; } .ds-btn-primary:focus-visible { outline: 2px solid #b89b58; outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }"
+    },
+    {
+      "name": "Primary Button Hover",
+      "kind": "button",
+      "refersTo": "button-primary-hover",
+      "description": "Hover/active press state; darkens for AA-safe contrast.",
+      "html": "<button class=\"ds-btn-primary-hover\" type=\"button\">Enviar áudio</button>",
+      "css": ".ds-btn-primary-hover { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: none; border-radius: 2px; background: #7a6334; color: oklch(0.99 0.005 90); font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.15s cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-primary-hover:hover { background: #8c733d; } .ds-btn-primary-hover:focus-visible { outline: 2px solid #b89b58; outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Ghost/secondary icon control: mic, refresh, discard.",
+      "html": "<button class=\"ds-btn-secondary\" type=\"button\" aria-label=\"Gravar áudio\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z\"/><path d=\"M19 10v2a7 7 0 0 1-14 0v-2\"/><line x1=\"12\" x2=\"12\" y1=\"19\" y2=\"22\"/></svg></button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 12px; border: 1px solid oklch(0.87 0.015 90); border-radius: 2px; background: oklch(0.999 0.003 90); color: oklch(0.5 0.015 80); cursor: pointer; transition: background 0.15s cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-secondary:hover { background: oklch(0.972 0.008 90); } .ds-btn-secondary:focus-visible { outline: 2px solid #b89b58; outline-offset: 2px; } .ds-btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-text",
+      "description": "Composer textarea and patient select field chrome.",
+      "html": "<textarea class=\"ds-input-text\" rows=\"1\" placeholder=\"Digite sua mensagem...\"></textarea>",
+      "css": ".ds-input-text { box-sizing: border-box; width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid oklch(0.87 0.015 90); border-radius: 2px; background: oklch(0.999 0.003 90); color: oklch(0.22 0.02 80); font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 14px; line-height: 1.4; resize: none; transition: border-color 0.15s, box-shadow 0.15s; } .ds-input-text::placeholder { color: oklch(0.68 0.012 85); } .ds-input-text:focus { outline: none; border-color: #b89b58; box-shadow: 0 0 0 2px oklch(0.88 0.05 90 / 0.6); } .ds-input-text:disabled { background: oklch(0.972 0.008 90); cursor: not-allowed; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Side panel and chat shell: parchment, hairline, rare shadow-sm.",
+      "html": "<section class=\"ds-card\"><header class=\"ds-card-header\">Agendamentos</header><div class=\"ds-card-body\">List content</div></section>",
+      "css": ".ds-card { border: 1px solid oklch(0.92 0.012 90); border-radius: 2px; background: oklch(0.999 0.003 90); color: oklch(0.22 0.02 80); box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); overflow: hidden; } .ds-card-header { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid oklch(0.92 0.012 90); font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 14px; font-weight: 600; } .ds-card-body { padding: 16px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 14px; }"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "refersTo": "chip-status",
+      "description": "Appointment status pill: soft tint + tracked uppercase text (never color alone).",
+      "html": "<span class=\"ds-chip-status\">Agendado</span>",
+      "css": ".ds-chip-status { display: inline-block; padding: 4px 8px; border-radius: 2px; background: oklch(0.965 0.03 250); color: oklch(0.5 0.13 250); font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 11px; font-weight: 600; line-height: 1.3; letter-spacing: 0.12em; text-transform: uppercase; }"
+    },
+    {
+      "name": "Header Tile",
+      "kind": "custom",
+      "refersTo": "header-tile",
+      "description": "Brand mark square beside Cinzel wordmark.",
+      "html": "<div class=\"ds-header-tile\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M22 12h-4l-3 9L9 3l-3 9H2\"/></svg></div>",
+      "css": ".ds-header-tile { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 2px; background: #8c733d; color: oklch(0.99 0.005 90); flex-shrink: 0; }"
+    },
+    {
+      "name": "Message Bubble User",
+      "kind": "custom",
+      "refersTo": "button-primary",
+      "description": "Right-aligned user turn: bronze fill, inverse prose.",
+      "html": "<div class=\"ds-bubble-user\">Quero agendar uma consulta.</div>",
+      "css": ".ds-bubble-user { display: inline-block; max-width: 82%; margin-left: auto; padding: 12px 16px; border-radius: 2px; background: #8c733d; color: oklch(0.99 0.005 90); font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 14px; line-height: 1.5; text-align: left; }"
+    },
+    {
+      "name": "Message Bubble Agent",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Left-aligned agent turn: parchment + hairline + shadow-sm.",
+      "html": "<div class=\"ds-bubble-agent\">Claro. Vejo horários livres na terça.</div>",
+      "css": ".ds-bubble-agent { display: inline-block; max-width: 82%; padding: 12px 16px; border: 1px solid oklch(0.92 0.012 90); border-radius: 2px; background: oklch(0.999 0.003 90); color: oklch(0.22 0.02 80); box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 14px; line-height: 1.5; text-align: left; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Bronze Instrument",
+    "overview": "This system treats the interface as a precision instrument machined from aged brass and warm paper: every surface is flat stock, every division is a hairline, and gold appears only where the instrument requires force (primary action, selection, focus). Restrained clinical luxury means sophistication through subtraction. No decoration earns a pixel unless it carries hierarchy or state.\n\nThe palette is deliberately quiet so the scheduling task stays loud. Cinzel appears only at brand moments (header wordmark, empty-state titles); Inter owns every label, control, datum, and markdown body. Geometry is identity: rigid corners (rounded-sm, 2px), 1px rules, wide-tracked uppercase labels, and a thin gold divider as the sole ornamental gesture.\n\nIt explicitly rejects the anti-references in PRODUCT.md: generic healthcare SaaS (white + teal/mint gradients, rounded-2xl everything, stock photo cards), consumer chat toys (bubbly radii, purple AI gradients, anthropomorphic avatars, bouncing motion), dark \"premium\" dashboards with neon accents, landing-page patterns inside the app (hero metrics, gradient text, glassmorphism, side-stripe callouts), and over-decorated or invented affordances for standard tasks.",
+    "keyCharacteristics": [
+      "Restrained: aged brass is the single accent, never ambient decoration",
+      "Crisp and quiet controls: dry, sober, Linear/Stripe-earned familiarity",
+      "Flat surfaces separated by hairlines; elevation only for floating chat chrome",
+      "Roman serif (Cinzel) strictly at brand moments; Inter everywhere else",
+      "Rigid 90° geometry, wide-tracked labels, thin horizontal rules",
+      "Deterministic honesty: status is text + color, never color alone"
+    ],
+    "rules": [
+      {
+        "name": "The One Accent Rule",
+        "body": "Gold/bronze is the single accent for primary actions, selection, and focus, never decoration for its own sake. Aged Brass does not fill large surfaces.",
+        "section": "colors"
+      },
+      {
+        "name": "The No-Warning-Gold Rule",
+        "body": "Amber warnings must not borrow brand gold. Warnings use the warning tokens and always ship an icon; status is never color alone.",
+        "section": "colors"
+      },
+      {
+        "name": "The No-Pure-Neutrals Rule",
+        "body": "Never #000 or #fff. Every neutral carries the brand's warm hue (chroma ~0.005–0.02).",
+        "section": "colors"
+      },
+      {
+        "name": "The Seal Rule",
+        "body": "Cinzel only at brand moments: header wordmark and empty-state headings. Inter for every label, control, datum, and markdown body. Type serves hierarchy, not costume.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tracking Rule",
+        "body": "Uppercase labels carry 0.12em+ letter-spacing; display wordmark carries 0.2em. Never set uppercase Inter or Cinzel tight.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-By-Default Rule",
+        "body": "Surfaces are flat at rest. shadow-sm only on floating panels; never on rows, chips, or nested children. If a shadow reads as a drop-shadow poster, the blur is wrong for this system.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use Burnished Bronze (#8c733d) + Inverse Parchment for every primary action and the user bubble; verify AA for text on bronze.",
+      "Do keep corners rigid (rounded-sm, 2px); full radius only on avatars and the recording pulse dot.",
+      "Do separate layers with 1px Hairline Sand or border-brand/40 hairlines; wide-track uppercase labels (0.12em+).",
+      "Do reserve Cinzel for header wordmark and empty-state titles; Inter for all controls, data, and markdown.",
+      "Do pair every status color with text (and icon where the state is failure/warning); use role=\"alert\" for failures.",
+      "Do honor prefers-reduced-motion; keep motion state-only (spinner, typing dots, recording pulse).",
+      "Do show explicit async states (Processando, loading rows, disabled composer) without implying a mutation succeeded until FastAPI history confirms it."
+    ],
+    "donts": [
+      "Don't use generic healthcare SaaS: white + teal/mint gradients, rounded-2xl everything, stock photo cards.",
+      "Don't use consumer chat toys: bubbly radii, purple AI gradients, anthropomorphic avatars, bouncing decorative motion.",
+      "Don't build dark \"premium\" dashboards with neon accents (wrong ambient light and wrong brand).",
+      "Don't use landing-page patterns inside the app: hero metrics, gradient text (background-clip: text), glassmorphism, side-stripe callouts (border-left > 1px as accent).",
+      "Don't over-decorate controls or invent affordances; the category/status bar stays Linear/Stripe-style earned familiarity.",
+      "Don't put white or small light text on Aged Brass (#b89b58); primary fills stay on Burnished Bronze.",
+      "Don't use em dashes (or --) in UI copy; use commas, colons, parentheses, or periods.",
+      "Don't animate CSS layout properties; no bounce/elastic easing on controls."
+    ]
+  }
+}
