@@ -27,6 +27,13 @@ SQLC_CMD              ?= sqlc
 UV_CMD                ?= uv
 PYTEST_CMD            ?= $(UV_CMD) run pytest
 
+# Web and frontend tool configurations
+WEB_PATH              ?= ./apps/web
+NPM_CMD               ?= npm
+WEB_HOST              ?= 0.0.0.0
+WEB_DEV_PORT          ?= 5173
+WEB_PREVIEW_PORT      ?= 4173
+
 # Construct PostgreSQL connection URIs dynamically
 # Standard URI for schema migrations
 DB_URI := postgres://$(PG_SUPERUSER):$(PG_SUPERUSER_PW)@localhost:$(PG_PORT)/$(PG_DEFAULT_DB)?sslmode=$(PG_SUPERUSER_SSL_MODE)
@@ -312,6 +319,17 @@ test-coverage-html: ## Run tests and generate HTML coverage report at apps/api/h
 		--cov-report=html
 	@echo "==> HTML coverage report generated at $(API_PATH)/htmlcov/index.html"
 
+.PHONY: web-test
+web-test: ## Run the web unit test suite with Vitest
+	@echo "==> Running web unit tests..."
+	cd $(WEB_PATH) && $(NPM_CMD) test
+	@echo "==> Web test suite completed successfully."
+
+.PHONY: web-test-watch
+web-test-watch: ## Run the web unit tests in watch mode
+	@echo "==> Starting web unit tests in watch mode..."
+	cd $(WEB_PATH) && $(NPM_CMD) run test:watch
+
 
 # ==============================================================================
 # DEVELOPMENT TARGETS (Dependencies and local API)
@@ -352,13 +370,61 @@ api-dev: ## Run the FastAPI application locally with automatic reload
 		--port $(API_PORT) \
 		--reload
 
+.PHONY: web-deps-sync
+web-deps-sync: ## Install web dependencies from package-lock.json
+	@echo "==> Synchronizing web dependencies..."
+	cd $(WEB_PATH) && $(NPM_CMD) ci --no-audit --no-fund
+	@echo "==> Web dependencies synchronized successfully."
+
+.PHONY: web-dev
+web-dev: ## Run the Vite development server for the web app
+	@echo "==> Starting web development server at http://$(WEB_HOST):$(WEB_DEV_PORT)..."
+	cd $(WEB_PATH) && $(NPM_CMD) run dev -- \
+		--host $(WEB_HOST) \
+		--port $(WEB_DEV_PORT)
+
+.PHONY: web-build
+web-build: ## Build the web application for production
+	@echo "==> Building web application for production..."
+	cd $(WEB_PATH) && $(NPM_CMD) run build
+	@echo "==> Web production build completed successfully."
+
+.PHONY: web-preview
+web-preview: ## Preview the production web build locally
+	@echo "==> Starting web production preview at http://$(WEB_HOST):$(WEB_PREVIEW_PORT)..."
+	cd $(WEB_PATH) && $(NPM_CMD) run preview -- \
+		--host $(WEB_HOST) \
+		--port $(WEB_PREVIEW_PORT)
+
 
 # ==============================================================================
 # QUALITY TARGETS (Local CI-style validation)
 # ==============================================================================
 
+.PHONY: web-typecheck
+web-typecheck: ## Statically type-check the web application
+	@echo "==> Type-checking web application..."
+	cd $(WEB_PATH) && $(NPM_CMD) run typecheck
+	@echo "==> Web type-check completed successfully."
+
+.PHONY: web-lint
+web-lint: ## Lint the web application with Biome (no writes)
+	@echo "==> Running web lint..."
+	cd $(WEB_PATH) && $(NPM_CMD) run lint
+	@echo "==> Web lint completed."
+
+.PHONY: web-fmt
+web-fmt: ## Format the web application with Biome (writes files)
+	@echo "==> Formatting web sources..."
+	cd $(WEB_PATH) && $(NPM_CMD) run format
+	@echo "==> Web formatting completed."
+
+.PHONY: web-check
+web-check: web-typecheck web-test ## Run all non-destructive web validation checks
+	@echo "==> All web validation checks passed."
+
 .PHONY: check
-check: sqlc-check test ## Run SQLc validation and the complete automated test suite
+check: sqlc-check test web-typecheck web-test ## Run SQLc validation, API tests, and web checks
 	@echo "==> All project quality checks passed."
 
 

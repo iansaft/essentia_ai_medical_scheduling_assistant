@@ -5,3 +5,4 @@
 
 # Docker
 .docker/postgres/postgres_data
+.docker/n8n/n8n_data
