@@ -50,7 +50,6 @@ def get_service(
         UUID,
         Path(
             description="Unique medical service identifier.",
-            example="e2fb5edd-efbd-4d60-9de3-d6650e31562f",
             examples=[
                 "e2fb5edd-efbd-4d60-9de3-d6650e31562f",
             ],
@@ -82,7 +81,6 @@ def list_service_payment_methods(
         UUID,
         Path(
             description="Unique medical service identifier.",
-            example="e2fb5edd-efbd-4d60-9de3-d6650e31562f",
             examples=[
                 "e2fb5edd-efbd-4d60-9de3-d6650e31562f",
             ],

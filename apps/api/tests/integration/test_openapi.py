@@ -1,12 +1,14 @@
 import pytest
 from fastapi.testclient import TestClient
 
-
 pytestmark = pytest.mark.integration
 
 EXPECTED_OPERATIONS = {
     "/health": {"get"},
+    "/health/n8n": {"get"},
+    "/v1/patients": {"get"},
     "/v1/patients/{patient_id}": {"get"},
+    "/v1/patients/{patient_id}/appointments": {"get"},
     "/v1/services": {"get"},
     "/v1/services/{service_id}": {"get"},
     "/v1/services/{service_id}/payment-methods": {"get"},

@@ -27,6 +27,37 @@ FROM
 WHERE
     a.id = sqlc.arg ('appointment_id')::uuid;
 
+-- name: ListAppointmentsByPatientId :many
+SELECT
+    a.id,
+    a.patient_id,
+    p.full_name AS patient_name,
+    a.slot_id,
+    aps.doctor_id,
+    d.full_name AS doctor_name,
+    aps.service_id,
+    s.name AS service_name,
+    aps.starts_at,
+    aps.ends_at,
+    a.status,
+    a.price_amount,
+    a.currency,
+    a.cancellation_reason,
+    a.cancelled_at,
+    a.completed_at,
+    a.created_at,
+    a.updated_at
+FROM
+    appointments AS a
+    JOIN patients AS p ON p.id = a.patient_id
+    JOIN appointment_slots AS aps ON aps.id = a.slot_id
+    JOIN doctors AS d ON d.id = aps.doctor_id
+    JOIN services AS s ON s.id = aps.service_id
+WHERE
+    a.patient_id = sqlc.arg ('patient_id')::uuid
+ORDER BY
+    aps.starts_at DESC;
+
 -- name: GetPatientForBooking :one
 SELECT id, full_name, email, is_active
 FROM patients

@@ -5,7 +5,11 @@
 # source file: patients.sql
 from __future__ import annotations
 
-__all__: collections.abc.Sequence[str] = ("get_patient_by_id",)
+__all__: collections.abc.Sequence[str] = (
+    "QueryResults",
+    "get_patient_by_id",
+    "list_patients",
+)
 
 import typing
 
@@ -15,6 +19,8 @@ if typing.TYPE_CHECKING:
     import psycopg
     import psycopg.rows
     import uuid
+
+    type QueryResultsArgsType = int | float | str | memoryview | uuid.UUID | datetime.date | datetime.time | datetime.datetime | datetime.timedelta | collections.abc.Sequence[QueryResultsArgsType] | None
 
     type ConnectionLike = psycopg.Connection[psycopg.rows.TupleRow]
 
@@ -35,9 +41,70 @@ WHERE
     id = %(p1)s
 """
 
+LIST_PATIENTS: typing.Final[typing.LiteralString] = """-- name: ListPatients :many
+SELECT
+    id,
+    full_name,
+    email,
+    phone,
+    is_active,
+    created_at,
+    updated_at
+FROM patients
+ORDER BY
+    created_at,
+    id
+"""
+
+
+class QueryResults[T]:
+    __slots__ = ("_conn", "_cursor", "_decode_hook", "_iterator", "_params", "_sql")
+
+    def __init__(
+        self,
+        conn: ConnectionLike,
+        sql: typing.LiteralString,
+        decode_hook: collections.abc.Callable[[psycopg.rows.TupleRow], T],
+        params: dict[str, QueryResultsArgsType] | None = None,
+    ) -> None:
+        self._conn = conn
+        self._sql: typing.LiteralString = sql
+        self._decode_hook = decode_hook
+        self._params = params
+        self._cursor: psycopg.Cursor[psycopg.rows.TupleRow] | None = None
+        self._iterator: collections.abc.Iterator[psycopg.rows.TupleRow] | None = None
+
+    def __iter__(self) -> QueryResults[T]:
+        return self
+
+    def __call__(
+        self,
+    ) -> collections.abc.Sequence[T]:
+        result = self._conn.execute(self._sql, self._params).fetchall()
+        return [self._decode_hook(row) for row in result]
+
+    def __next__(self) -> T:
+        if self._cursor is None or self._iterator is None:
+            self._cursor = self._conn.execute(self._sql, self._params)
+            self._iterator = self._cursor.__iter__()
+        try:
+            record = self._iterator.__next__()
+        except StopIteration:
+            self._cursor = None
+            self._iterator = None
+            raise
+        return self._decode_hook(record)
+
 
 def get_patient_by_id(conn: ConnectionLike, *, id_: uuid.UUID) -> models.Patient | None:
     row = conn.execute(GET_PATIENT_BY_ID, {"p1": id_}).fetchone()
     if row is None:
         return None
     return models.Patient(id_=row[0], full_name=row[1], email=row[2], phone=row[3], is_active=row[4], created_at=row[5], updated_at=row[6])
+
+
+def list_patients(conn: ConnectionLike) -> QueryResults[models.Patient]:
+    def _decode_hook(row: psycopg.rows.TupleRow) -> models.Patient:
+        return models.Patient(id_=row[0], full_name=row[1], email=row[2], phone=row[3], is_active=row[4], created_at=row[5], updated_at=row[6])
+
+    return QueryResults(conn, LIST_PATIENTS, _decode_hook)

@@ -2,7 +2,7 @@
 
 API **FastAPI** responsável pelas operações determinísticas do domínio de agendamento médico: consulta de pacientes, catálogo de serviços e pagamentos, disponibilidade de agenda, criação e cancelamento de agendamentos.
 
-A API é a fonte da verdade para regras de negócio transacionais (o LLM/Agente e o n8n, em estágio posterior, apenas consomem este contrato). A especificação HTTP é gerada automaticamente pelo FastAPI em `/openapi.json` — é a única fonte de documentação de endpoints.
+A API é a fonte da verdade para regras de negócio transacionais (o LLM/Agente e o n8n consomem este contrato; a aplicação web em `apps/web` consome as rotas de leitura). A especificação HTTP é gerada automaticamente pelo FastAPI em `/openapi.json` — é a única fonte de documentação de endpoints.
 
 - Documentação técnica do projeto: [`../../docs/`](../../docs/README.md)
 - Timezone de negócio: `America/Sao_Paulo`
@@ -29,12 +29,18 @@ Sobe PostgreSQL → migrations → seeds → API nesta ordem (healthcheck/`depen
 # na raiz do repositório
 cp .env.example .env
 # edite PG_SUPERUSER_PW e mantenha API_DB_PW igual a ele
+# defina N8N_ENCRYPTION_KEY (obrigatória para o serviço n8n)
 
 docker compose up -d --build
-curl http://localhost:8000/health   # {"status":"ok"}
+curl http://localhost:8000/health         # {"status":"ok"}
+curl http://localhost:8000/health/n8n     # {"status":"ok"} quando o n8n está pronto
 ```
 
+O Compose sobe `postgres` → migrations/seeds → `api` → `n8n` → `web` (healthchecks/`depends_on` garantem a ordem):
+
 - API: `http://localhost:8000` (porta `API_PORT`, default 8000)
+- n8n: `http://localhost:5678` (porta `N8N_PORT`)
+- Web: `http://localhost:8080` (porta `WEB_PORT`)
 - Swagger UI: `http://localhost:8000/docs`
 - OpenAPI JSON: `http://localhost:8000/openapi.json`
 
@@ -62,10 +68,15 @@ make seed-down && make seed-up
 
 Todas as rotas de domínio estão sob o prefixo `/v1`. Não há autenticação nesta etapa.
 
+Habilitação de CORS: o middleware `CORSMiddleware` libera apenas as origens em `API_CORS_ORIGINS` (separadas por vírgula; default `http://localhost:5173,http://localhost:4173,http://localhost:8080` — Vite dev, Vite preview e container web).
+
 | Método | Recurso | Descrição |
 |---|---|---|
-| `GET` | `/health` | Health check do processo HTTP |
+| `GET` | `/health` | Health check do processo HTTP (liveness) |
+| `GET` | `/health/n8n` | Readiness do n8n via probe em `API_N8N_BASE_URL` |
+| `GET` | `/v1/patients` | Lista todos os pacientes (ativos e inativos) |
 | `GET` | `/v1/patients/{patient_id}` | Dados cadastrais de um paciente |
+| `GET` | `/v1/patients/{patient_id}/appointments` | Histórico de agendamentos do paciente |
 | `GET` | `/v1/services` | Lista serviços ativos |
 | `GET` | `/v1/services/{service_id}` | Detalhe de um serviço (preço, moeda, duração) |
 | `GET` | `/v1/services/{service_id}/payment-methods` | Métodos de pagamento aceitos pelo serviço |
@@ -82,6 +93,21 @@ Sem parâmetros. Resposta `200`:
 { "status": "ok" }
 ```
 
+### `GET /health/n8n`
+
+Sem parâmetros. Sonda `GET {API_N8N_BASE_URL}/healthz/readiness` (timeout 2s):
+
+| Situação | HTTP | Corpo |
+|---|---|---|
+| n8n responde `2xx` | `200` | `{"status":"ok"}` |
+| n8n inacessível ou não pronto | `503` | `{"detail":{"status":"error"}}` |
+
+Dentro do Compose a API usa `API_N8N_BASE_URL=http://n8n:5678`; em desenvolvimento local, o `.env` usa `http://localhost:5678`.
+
+### `GET /v1/patients`
+
+Sem parâmetros. `200` com a lista de **todos** os pacientes, ativos e inativos (`PatientResponse`: `id`, `full_name`, `email`, `phone`, `is_active`, timestamps), em ordem determinística (`created_at`, `id`). Pacientes inativos são incluídos com `is_active = false` (WEB-RF-01).
+
 ### `GET /v1/patients/{patient_id}`
 
 | | |
@@ -91,6 +117,18 @@ Sem parâmetros. Resposta `200`:
 | Erro | `404` se o paciente não existir |
 
 Consulta dados cadastrais mesmo sem agenda futura associada (BR-03).
+
+### `GET /v1/patients/{patient_id}/appointments`
+
+| | |
+|---|---|
+| Path | `patient_id` (UUID, obrigatório) |
+| Sucesso | `200` com lista de `AppointmentResponse` ordenada por `starts_at DESC` |
+| Erro | `404` se o paciente não existir; `422` se o UUID for inválido |
+
+Retorna **todos** os agendamentos do paciente, em qualquer status (`scheduled`, `cancelled`, `completed`, `no_show`), preservando o snapshot de preço e os dados de cancelamento (WEB-RF-06). Paciente existente sem agendamentos retorna `200` com `[]`.
+
+Example no OpenAPI: `3cdf666b-186d-44e6-bce9-5e572e7038f9` (Maria Silva).
 
 ### `GET /v1/services`
 
@@ -209,6 +247,7 @@ Example no OpenAPI: `8029d8d3-8fff-4dcc-a2ef-2ae0808bf95e` (único `scheduled` n
 | `404 Not Found` | Recurso não encontrado |
 | `409 Conflict` | Conflito de estado/concorrência: double booking, slot não cancelável, reuso inválido de `Idempotency-Key`, paciente/serviço/médico inativo, slot não `open`/passado |
 | `422 Unprocessable Entity` | Validação de path/query/body/header (Pydantic/FastAPI) |
+| `503 Service Unavailable` | Dependência externa indisponível (`GET /health/n8n` quando o n8n não está pronto) |
 | `500 Internal Server Error` | Falha não tratada |
 
 ## Dados de demonstração (seeds)
@@ -283,6 +322,7 @@ curl http://localhost:8000/health
 | # | Request | Expectativa |
 |---|---|---|
 | 1 | `GET /health` | `200` → `{"status":"ok"}` |
+| 1b | `GET /health/n8n` | `200` → `{"status":"ok"}` (n8n pronto) ou `503` se o n8n estiver fora |
 | 2 | `GET /v1/services` | `200` → 4 serviços |
 | 3 | `GET /v1/services/{service_id}` (example `e2fb5edd-…`) | `200` → Cardiologia, 320,00 BRL |
 | 4 | `GET /v1/services/{service_id}/payment-methods` (mesmo id) | `200` → PIX, cartão de crédito (até 6x), débito |
@@ -348,7 +388,8 @@ make test-openapi      # contrato OpenAPI (operações e header Idempotency-Key)
 make test-appointments # booking, cancelamento e idempotência
 make test-availability # disponibilidade e filtros
 make test-db           # invariantes de banco (constraints)
-make check             # sqlc + suíte completa
+make check             # sqlc + suíte da API + typecheck e testes do web
+make web-check         # apenas validações do web (typecheck + Vitest)
 ```
 
 Convenções relevantes (detalhes em [`../../docs/testing-and-operations.md`](../../docs/testing-and-operations.md)):
@@ -385,4 +426,5 @@ apps/api/src/essentia_api/
 | [`../../docs/architecture.md`](../../docs/architecture.md) | Arquitetura e fluxos (booking, cancelamento, disponibilidade) |
 | [`../../docs/data-model.md`](../../docs/data-model.md) | Modelo relacional e invariantes |
 | [`../../docs/design-decisions.md`](../../docs/design-decisions.md) | Trade-offs (idempotência, snapshot de preço, sqlc) |
+| [`../../docs/web-application.md`](../../docs/web-application.md) | Especificação da aplicação web (WEB-RF/WEB-DD) |
 | [`../../docs/testing-and-operations.md`](../../docs/testing-and-operations.md) | Estratégia de testes e operação local |

@@ -10,12 +10,15 @@ __all__: collections.abc.Sequence[str] = (
     "GetAppointmentForCancellationRow",
     "GetPatientForBookingRow",
     "GetSlotForBookingRow",
+    "ListAppointmentsByPatientIdRow",
+    "QueryResults",
     "cancel_appointment",
     "create_appointment",
     "get_appointment_by_id",
     "get_appointment_for_cancellation",
     "get_patient_for_booking",
     "get_slot_for_booking",
+    "list_appointments_by_patient_id",
 )
 
 import dataclasses
@@ -29,11 +32,35 @@ if typing.TYPE_CHECKING:
     import psycopg.rows
     import uuid
 
+    type QueryResultsArgsType = int | float | str | memoryview | decimal.Decimal | uuid.UUID | datetime.date | datetime.time | datetime.datetime | datetime.timedelta | collections.abc.Sequence[QueryResultsArgsType] | None
+
     type ConnectionLike = psycopg.Connection[psycopg.rows.TupleRow]
 
 
 @dataclasses.dataclass()
 class GetAppointmentByIdRow:
+    id_: uuid.UUID
+    patient_id: uuid.UUID
+    patient_name: str
+    slot_id: uuid.UUID
+    doctor_id: uuid.UUID
+    doctor_name: str
+    service_id: uuid.UUID
+    service_name: str
+    starts_at: datetime.datetime
+    ends_at: datetime.datetime
+    status: str
+    price_amount: decimal.Decimal
+    currency: str
+    cancellation_reason: str | None
+    cancelled_at: datetime.datetime | None
+    completed_at: datetime.datetime | None
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
+
+
+@dataclasses.dataclass()
+class ListAppointmentsByPatientIdRow:
     id_: uuid.UUID
     patient_id: uuid.UUID
     patient_name: str
@@ -113,6 +140,38 @@ WHERE
     a.id = %(p1)s::uuid
 """
 
+LIST_APPOINTMENTS_BY_PATIENT_ID: typing.Final[typing.LiteralString] = """-- name: ListAppointmentsByPatientId :many
+SELECT
+    a.id,
+    a.patient_id,
+    p.full_name AS patient_name,
+    a.slot_id,
+    aps.doctor_id,
+    d.full_name AS doctor_name,
+    aps.service_id,
+    s.name AS service_name,
+    aps.starts_at,
+    aps.ends_at,
+    a.status,
+    a.price_amount,
+    a.currency,
+    a.cancellation_reason,
+    a.cancelled_at,
+    a.completed_at,
+    a.created_at,
+    a.updated_at
+FROM
+    appointments AS a
+    JOIN patients AS p ON p.id = a.patient_id
+    JOIN appointment_slots AS aps ON aps.id = a.slot_id
+    JOIN doctors AS d ON d.id = aps.doctor_id
+    JOIN services AS s ON s.id = aps.service_id
+WHERE
+    a.patient_id = %(p1)s::uuid
+ORDER BY
+    aps.starts_at DESC
+"""
+
 GET_PATIENT_FOR_BOOKING: typing.Final[typing.LiteralString] = """-- name: GetPatientForBooking :one
 SELECT id, full_name, email, is_active
 FROM patients
@@ -185,6 +244,45 @@ WHERE
 """
 
 
+class QueryResults[T]:
+    __slots__ = ("_conn", "_cursor", "_decode_hook", "_iterator", "_params", "_sql")
+
+    def __init__(
+        self,
+        conn: ConnectionLike,
+        sql: typing.LiteralString,
+        decode_hook: collections.abc.Callable[[psycopg.rows.TupleRow], T],
+        params: dict[str, QueryResultsArgsType] | None = None,
+    ) -> None:
+        self._conn = conn
+        self._sql: typing.LiteralString = sql
+        self._decode_hook = decode_hook
+        self._params = params
+        self._cursor: psycopg.Cursor[psycopg.rows.TupleRow] | None = None
+        self._iterator: collections.abc.Iterator[psycopg.rows.TupleRow] | None = None
+
+    def __iter__(self) -> QueryResults[T]:
+        return self
+
+    def __call__(
+        self,
+    ) -> collections.abc.Sequence[T]:
+        result = self._conn.execute(self._sql, self._params).fetchall()
+        return [self._decode_hook(row) for row in result]
+
+    def __next__(self) -> T:
+        if self._cursor is None or self._iterator is None:
+            self._cursor = self._conn.execute(self._sql, self._params)
+            self._iterator = self._cursor.__iter__()
+        try:
+            record = self._iterator.__next__()
+        except StopIteration:
+            self._cursor = None
+            self._iterator = None
+            raise
+        return self._decode_hook(record)
+
+
 def get_appointment_by_id(conn: ConnectionLike, *, appointment_id: uuid.UUID) -> GetAppointmentByIdRow | None:
     row = conn.execute(GET_APPOINTMENT_BY_ID, {"p1": appointment_id}).fetchone()
     if row is None:
@@ -209,6 +307,32 @@ def get_appointment_by_id(conn: ConnectionLike, *, appointment_id: uuid.UUID) ->
         created_at=row[16],
         updated_at=row[17],
     )
+
+
+def list_appointments_by_patient_id(conn: ConnectionLike, *, patient_id: uuid.UUID) -> QueryResults[ListAppointmentsByPatientIdRow]:
+    def _decode_hook(row: psycopg.rows.TupleRow) -> ListAppointmentsByPatientIdRow:
+        return ListAppointmentsByPatientIdRow(
+            id_=row[0],
+            patient_id=row[1],
+            patient_name=row[2],
+            slot_id=row[3],
+            doctor_id=row[4],
+            doctor_name=row[5],
+            service_id=row[6],
+            service_name=row[7],
+            starts_at=row[8],
+            ends_at=row[9],
+            status=row[10],
+            price_amount=row[11],
+            currency=row[12],
+            cancellation_reason=row[13],
+            cancelled_at=row[14],
+            completed_at=row[15],
+            created_at=row[16],
+            updated_at=row[17],
+        )
+
+    return QueryResults(conn, LIST_APPOINTMENTS_BY_PATIENT_ID, _decode_hook, {"p1": patient_id})
 
 
 def get_patient_for_booking(conn: ConnectionLike, *, patient_id: uuid.UUID) -> GetPatientForBookingRow | None:

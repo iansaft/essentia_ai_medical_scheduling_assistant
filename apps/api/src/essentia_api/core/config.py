@@ -1,12 +1,23 @@
-from pydantic import AliasChoices, Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+import json
+from typing import Annotated
+
+from pydantic import (
+    AliasChoices,
+    Field,
+    field_validator,
+)
+from pydantic_settings import (
+    BaseSettings,
+    NoDecode,
+    SettingsConfigDict,
+)
 
 
 class Settings(BaseSettings):
     app_env: str = Field(
         default="development",
         validation_alias=AliasChoices(
-            "APP_ENV",
+            "API_ENV",
             "NODE_ENV",
         ),
     )
@@ -51,6 +62,50 @@ class Settings(BaseSettings):
     db_pool_timeout: float = 5.0
 
     business_timezone: str = "America/Sao_Paulo"
+
+    n8n_base_url: str = Field(
+        default="http://localhost:5678",
+        validation_alias=AliasChoices(
+            "API_N8N_BASE_URL",
+        ),
+    )
+
+    cors_origins: Annotated[
+        list[str],
+        NoDecode,
+    ] = Field(
+        default_factory=lambda: [
+            "http://localhost:5173",
+            "http://localhost:4173",
+            "http://localhost:8080",
+        ],
+        validation_alias=AliasChoices(
+            "API_CORS_ORIGINS",
+        ),
+    )
+
+    @field_validator(
+        "cors_origins",
+        mode="before",
+    )
+    @classmethod
+    def parse_cors_origins(
+        cls,
+        value: object,
+    ) -> object:
+        if isinstance(value, str):
+            text = value.strip()
+
+            if text.startswith("["):
+                return json.loads(text)
+
+            return [
+                origin.strip()
+                for origin in text.split(",")
+                if origin.strip()
+            ]
+
+        return value
 
     model_config = SettingsConfigDict(
         case_sensitive=False,
