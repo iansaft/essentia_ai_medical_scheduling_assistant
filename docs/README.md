@@ -16,7 +16,7 @@ Esta pasta concentra as principais decisões de produto, domínio e engenharia d
 
 ## Visão resumida
 
-O sistema é um assistente de agendamento médico com interface conversacional orquestrada por **n8n** e uma API **FastAPI** responsável pelas operações determinísticas do domínio. O **PostgreSQL** mantém a fonte de verdade transacional e também reforça invariantes críticas de consistência.
+O sistema é um assistente de agendamento médico com interface conversacional orquestrada por **n8n** e uma API **FastAPI** responsável pelas operações determinísticas do domínio. O **PostgreSQL** mantém a fonte de verdade transacional e também reforça invariantes críticas de consistência; um **Redis** atua apenas como cache descartável (cache-aside) da leitura de disponibilidade, com TTL curto e invalidação pós-commit.
 
 Princípio central:
 
@@ -33,6 +33,7 @@ Princípio central:
 - listagem e consulta de serviços;
 - consulta de métodos de pagamento por serviço;
 - consulta de disponibilidade com filtros opcionais;
+- cache de disponibilidade em Redis (cache-aside, TTL 30s + jitter, invalidação pós-commit de booking/cancelamento, fail-open — DD-20);
 - consulta de agendamento por ID;
 - criação de agendamento (idempotente);
 - cancelamento de agendamento (idempotente);
@@ -58,7 +59,7 @@ Princípio central:
 
 ### Infraestrutura Compose
 
-- serviços `postgres`, `migrate`, `api`, `n8n` e `web` com healthchecks e ordem de dependência;
+- serviços `postgres`, `migrate`, `redis`, `api`, `n8n` e `web` com healthchecks e ordem de dependência;
 - volume de dados do n8n (`.docker/n8n/n8n_data`) versionado fora do git.
 
 ### Planejado / próxima etapa

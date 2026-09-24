@@ -110,7 +110,7 @@ pgvector pode ser adicionado posteriormente para FAQ ou conhecimento textual sem
 
 ## DD-16 — Application Factory e infraestrutura por instância
 
-**Decisão:** a aplicação FastAPI é criada por `create_app(settings)`. Configuração e pool de conexões pertencem à instância da aplicação; o pool é criado e encerrado pelo lifespan e disponibilizado através de `app.state`.
+**Decisão:** a aplicação FastAPI é criada por `create_app(settings)`. Configuração, pool de conexões PostgreSQL e cliente Redis do cache de disponibilidade pertencem à instância da aplicação; ambos são criados e encerrados pelo lifespan e disponibilizados através de `app.state` (`db_pool`, `availability_cache`).
 
 **Motivo:** tornar explícito o ownership da infraestrutura, eliminar dependência de estado global/import-time e permitir que cada instância da aplicação opere com configuração própria.
 
@@ -156,3 +156,11 @@ Logs usam **structlog** em stdout: JSON em produção (`API_LOG_JSON=true`), con
 - `503` do `GET /health/n8n` — mantém `{"detail": {"status": "error"}}` (health check de infraestrutura).
 
 **Motivo:** um envelope único padroniza clientes (n8n, SPA, testes), remove `try/except` de tradução nas rotas, e o correlation ID amarra request → log → fluxo n8n sem depender de stacktrace em resposta.
+
+## DD-20 — Cache-aside de disponibilidade em Redis (fail-open, não autoritativo)
+
+**Decisão:** `GET /v1/availability` é servido por cache-aside em Redis com chave versionada `availability:v1:{service_id|all}:{doctor_id|all}:{date|all}`, TTL base de 30s + jitter aleatório de 0–10s (`AVAILABILITY_CACHE_TTL_SECONDS` / `AVAILABILITY_CACHE_TTL_JITTER_SECONDS`) e kill-switch `AVAILABILITY_CACHE_ENABLED`. Booking e cancelamento invalidam o cross product de 8 chaves **somente após o `POSTGRESQL COMMIT`**. Falhas de `get`/`set`/`delete` no Redis são fail-open: caem para o caminho PostgreSQL e apenas logam (`availability_cache_read_error` / `write_error` / `invalidation_error`).
+
+**Motivo:** disponibilidade é a leitura mais consultada do sistema e é derivada (DD-04), portanto descartável; TTL curto + invalidação pós-commit reduzem carga no PostgreSQL sem introduzir uma segunda fonte de verdade. O Redis **nunca** autoriza booking — double booking continua garantido pelo lock `FOR UPDATE` (DD-09) e pela unique constraint parcial (DD-03).
+
+**Trade-off:** leituras podem ficar até ~30–40s stale quando a invalidação falha (ou entre commit e `DEL` concorrente); sem single-flight, cold start sob carga extrema ainda pode gerar thundering herd ao PostgreSQL (mitigado por TTL+jitter, coalescing é follow-up). Em contrapartida, indisponibilidade do Redis nunca derruba leituras nem desfaz escritas confirmadas.

@@ -4,15 +4,15 @@
 
 A arquitetura foi desenhada para que o domínio possa ser validado independentemente do Agent.
 
-A suíte automatizada utiliza `pytest` e executa testes de integração contra uma instância descartável de PostgreSQL 18.4 criada com Testcontainers. Isso permite validar comportamento específico do PostgreSQL, incluindo transações, `FOR UPDATE`, exclusion constraints, unique indexes parciais e concorrência real.
+A suíte automatizada utiliza `pytest` e executa testes de integração contra instâncias descartáveis de PostgreSQL 18.4 e Redis 8.10 criadas com Testcontainers. Isso permite validar comportamento específico do PostgreSQL (transações, `FOR UPDATE`, exclusion constraints, unique indexes parciais e concorrência real) e do cache de disponibilidade (HIT/MISS, expiração, invalidação e fail-open) contra um Redis real. Há também uma camada de testes unitários (`tests/unit/`) para a lógica de cache com clientes mockados.
 
 A camada web possui suíte própria de testes unitários com `vitest` e React Testing Library, executada de forma independente (ver `make web-test`).
 
 Estado atual da suíte da API:
 
 ```text
-61 tests passed
-94.50% total coverage
+132 tests passed
+94.47% total coverage
 minimum required coverage: 85%
 ```
 
@@ -38,6 +38,20 @@ Cobertura inclui:
 - slot bloqueado não aparece;
 - slot com appointment `scheduled` não aparece;
 - slot com appointment cancelado pode voltar a aparecer quando ainda está aberto/futuro.
+
+### Cache de disponibilidade
+
+Cobertura unitária (`tests/unit/test_availability_cache.py`) e de integração (`tests/integration/test_availability_cache.py`, com Redis real via Testcontainers):
+
+- formato e determinismo das chaves `availability:v1:{service|all}:{doctor|all}:{date|all}`;
+- serialização/deserialização do payload (incluindo lista vazia);
+- MISS popula a chave com TTL dentro da janela base + jitter; HIT serve sem consultar o PostgreSQL;
+- expiração da chave volta a consultar o PostgreSQL e repopula;
+- invalidação pós-commit no booking e no cancelamento (cross product de 8 keys);
+- booking rejeitado (ex.: `409`) não invalida a chave;
+- fail-open: outage total do Redis e falhas de `set`/`delete` não quebram a leitura/escrita (PostgreSQL continua servindo);
+- flag `AVAILABILITY_CACHE_ENABLED=false` ignora o Redis por completo;
+- reset autouse da namespace `availability:*` entre testes.
 
 ### Booking
 
@@ -66,7 +80,7 @@ Cobertura inclui:
 - idempotência do comando;
 - liberação de slot futuro após cancelamento quando aplicável.
 
-Também são validados o contrato OpenAPI e invariantes diretamente no banco de dados.
+Também são validados o contrato OpenAPI, invariantes diretamente no banco de dados e o cache de disponibilidade (unit + integração com Redis real).
 
 ### Camada web
 
@@ -251,7 +265,7 @@ Respostas com sucesso em origens de browser permitidas incluem headers CORS conf
 
 ## 8. Configuração e Docker
 
-A API lê configuração de environment variables. Dentro da rede Docker Compose, a API acessa PostgreSQL pelo hostname do serviço (`postgres`), não por `127.0.0.1`. Variáveis de ambiente da API usam o prefixo `API_*` (ex.: `API_ENV`, `API_HOST`, `API_PORT`, `API_CORS_ORIGINS`, `API_N8N_BASE_URL`).
+A API lê configuração de environment variables. Dentro da rede Docker Compose, a API acessa PostgreSQL e Redis pelos hostnames dos respectivos serviços (`postgres`, `redis`), não por `127.0.0.1`. Variáveis de ambiente da API usam o prefixo `API_*` (ex.: `API_ENV`, `API_HOST`, `API_PORT`, `API_CORS_ORIGINS`, `API_N8N_BASE_URL`, `API_REDIS_HOST`, `API_REDIS_PORT`, `API_REDIS_PASSWORD`). As variáveis do cache (`AVAILABILITY_CACHE_*`) deliberadamente não usam o prefixo `API_*`.
 
 O stack Compose sobe, nesta ordem (via healthchecks/`depends_on`):
 
@@ -261,6 +275,8 @@ PostgreSQL healthy
 migrations
        ↓
 seeds
+       ↓
+Redis healthy
        ↓
 FastAPI create_app()
        ↓
@@ -274,6 +290,7 @@ Serviços relevantes:
 | Serviço | Porta default | Papel |
 |---|---|---|
 | `postgres` | `5432` | fonte de verdade transacional |
+| `redis` | `6379` | cache de disponibilidade (cache-aside, TTL + invalidação pós-commit) |
 | `api` | `8000` | FastAPI (REST + CORS + `/health/n8n`) |
 | `n8n` | `5678` | orquestração conversacional / AI Agent |
 | `web` | `8080` | bundle estático da SPA (nginx) |
@@ -284,6 +301,10 @@ Variáveis novas relevantes no `.env`:
 - `API_N8N_BASE_URL` — base do probe de readiness (host: `http://localhost:5678`; Compose: `http://n8n:5678`);
 - `API_LOG_LEVEL` — nível mínimo de log (default `INFO`);
 - `API_LOG_JSON` — `true` (default) para JSON lines em stdout; `false` para console legível;
+- `API_REDIS_HOST`, `API_REDIS_PORT`, `API_REDIS_PASSWORD`, `API_REDIS_DB`, `API_REDIS_SOCKET_TIMEOUT`, `API_REDIS_CONNECT_TIMEOUT` — conexão com o Redis;
+- `AVAILABILITY_CACHE_ENABLED` — liga/desliga o cache-aside de disponibilidade (default `true`);
+- `AVAILABILITY_CACHE_TTL_SECONDS` — TTL base do cache (default `30`);
+- `AVAILABILITY_CACHE_TTL_JITTER_SECONDS` — jitter aleatório somado ao TTL (default `10`); TTL efetivo = base + `0…jitter`;
 - `N8N_ENCRYPTION_KEY` — obrigatória para o serviço n8n;
 - `VITE_API_BASE_URL`, `VITE_N8N_CHAT_WEBHOOK_URL` — embutidas no bundle web (não contêm segredos).
 
@@ -302,14 +323,16 @@ migrations
        ↓
 seeds
        ↓
+Redis healthy
+       ↓
 FastAPI create_app()
        ↓
 lifespan
        ↓
-connection pool
+connection pool + redis client (app.state.availability_cache)
 ```
 
-Nos testes, a configuração é construída diretamente a partir das credenciais do PostgreSQL criado pelo Testcontainers e injetada em `create_app(settings)`, mantendo a aplicação de teste isolada da configuração local.
+Nos testes, a configuração é construída diretamente a partir das credenciais do PostgreSQL e do Redis criados pelos Testcontainers e injetada em `create_app(settings)`, mantendo a aplicação de teste isolada da configuração local. A namespace `availability:*` é limpa entre testes por um fixture autouse para não haver contaminação entre casos.
 
 ## 9. Convenções de desenvolvimento
 
@@ -322,6 +345,6 @@ Nos testes, a configuração é construída diretamente a partir das credenciais
 - não colocar regras transacionais em prompts;
 - preferir constraints de banco para invariantes críticas;
 - manter exemplos OpenAPI alinhados às seeds;
-- executar a suíte completa com `pytest` antes de entrega;
+- executar a suíte completa com `pytest` antes de entrega (ou `make test-availability-cache` ao mexer no cache);
 - validar a camada web com `make web-check` (typecheck + Vitest) antes de entrega;
 - erros de domínio sempre via exceções de `core/errors.py` (nunca `HTTPException` ad-hoc fora de health 503).

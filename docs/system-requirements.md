@@ -30,6 +30,8 @@ Disponibilidade efetiva significa:
 - serviço ativo;
 - ausência de appointment com status `scheduled` para o slot.
 
+A leitura pode ser servida por um cache descartável em Redis (cache-aside, DD-20): nesse caso a resposta pode refletir essas condições com atraso limitado ao TTL (30s + jitter até 10s) ou até a invalidação pós-commit do próximo booking/cancelamento. Booking e cancelamento sempre reavaliam contra o PostgreSQL.
+
 ### RF-05 — Criar agendamento
 
 O sistema deve permitir agendar um paciente em um slot disponível.
@@ -82,7 +84,7 @@ A solução deve produzir logs estruturados e propagar um correlation ID entre w
 
 ### RNF-04 — Determinismo do core
 
-LLMs não devem ser a fonte de verdade para disponibilidade, preço, estado de agendamento ou outras regras transacionais. Essas decisões pertencem à API e ao PostgreSQL.
+LLMs não devem ser a fonte de verdade para disponibilidade, preço, estado de agendamento ou outras regras transacionais. Essas decisões pertencem à API e ao PostgreSQL. O Redis é apenas um cache descartável e não autoritativo de leituras de disponibilidade (fail-open), nunca fonte de verdade.
 
 ### RNF-05 — Contrato HTTP documentado
 
