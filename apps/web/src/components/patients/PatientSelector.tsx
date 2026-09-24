@@ -1,4 +1,4 @@
-import { ChevronDown, UserRound } from "lucide-react";
+import { ChevronDown, Plus, UserRound } from "lucide-react";
 import type { Patient } from "../../types/domain";
 
 type PatientSelectorProps = {
@@ -7,6 +7,7 @@ type PatientSelectorProps = {
   isLoading: boolean;
   error: string | null;
   onChange: (patientId: string) => void;
+  onCreate: () => void;
 };
 
 export function PatientSelector({
@@ -15,20 +16,36 @@ export function PatientSelector({
   isLoading,
   error,
   onChange,
+  onCreate,
 }: PatientSelectorProps) {
   return (
     <section
       aria-labelledby="patient-selector-title"
       className="rounded-sm border border-line bg-raised p-4 shadow-sm"
     >
-      <div className="mb-3 flex items-center gap-2">
-        <UserRound aria-hidden="true" className="size-4 text-brand-dark" />
-        <h2
-          id="patient-selector-title"
-          className="text-sm font-semibold text-ink"
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <UserRound
+            aria-hidden="true"
+            className="size-4 shrink-0 text-brand-dark"
+          />
+          <h2
+            id="patient-selector-title"
+            className="text-sm font-semibold text-ink"
+          >
+            Paciente
+          </h2>
+        </div>
+
+        <button
+          aria-label="Novo paciente"
+          className="flex shrink-0 items-center gap-1.5 rounded-sm bg-brand-dark px-2.5 py-1.5 text-xs font-medium text-ink-inverse transition hover:bg-brand-press focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-2"
+          onClick={onCreate}
+          type="button"
         >
-          Paciente
-        </h2>
+          <Plus aria-hidden="true" className="size-3.5" />
+          Novo paciente
+        </button>
       </div>
 
       <div className="relative">

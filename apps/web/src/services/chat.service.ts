@@ -86,7 +86,10 @@ export async function sendTextMessage(
     body: JSON.stringify({
       action: "sendMessage",
       sessionId: patient.id,
+      patientId: patient.id,
+      patientName: patient.name,
       patientEmail: patient.email,
+      patientPhone: patient.phone ?? "",
       chatInput,
     }),
     signal,
@@ -104,7 +107,10 @@ export async function sendAudioMessage(
 
   body.append("action", "sendMessage");
   body.append("sessionId", patient.id);
+  body.append("patientId", patient.id);
+  body.append("patientName", patient.name);
   body.append("patientEmail", patient.email);
+  body.append("patientPhone", patient.phone ?? "");
   body.append("messageType", "audio");
   body.append("audio", audio, audioFilename(audio.type));
 

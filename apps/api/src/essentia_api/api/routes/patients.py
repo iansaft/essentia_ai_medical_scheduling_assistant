@@ -2,17 +2,22 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Path, status
-from psycopg import Connection
+from psycopg import Connection, errors
 
 from essentia_api.api.dependencies import PatientIdentity, get_db_connection
 from essentia_api.core.errors import (
     ForbiddenError,
+    PatientEmailAlreadyExistsError,
     PatientNotFoundError,
+    PatientPhoneAlreadyExistsError,
 )
 from essentia_api.db.generated import appointments as appointment_queries
 from essentia_api.db.generated import patients as patient_queries
 from essentia_api.schemas.appointments import AppointmentResponse
-from essentia_api.schemas.patients import PatientResponse
+from essentia_api.schemas.patients import (
+    CreatePatientRequest,
+    PatientResponse,
+)
 
 router = APIRouter(
     prefix="/patients",
@@ -31,6 +36,57 @@ def _ensure_patient_access(
 ) -> None:
     if path_patient_id != caller_patient_id:
         raise ForbiddenError("Patient access denied.")
+
+
+@router.post(
+    "",
+    response_model=PatientResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create patient",
+    description=(
+        "Registers a new patient. Open endpoint — no identity header"
+        " required. Duplicate email (case-insensitive) or phone"
+        " returns 409."
+    ),
+)
+def create_patient(
+    command: CreatePatientRequest,
+    connection: DatabaseConnection,
+) -> PatientResponse:
+    existing = patient_queries.get_patient_by_email(
+        connection,
+        email=command.email,
+    )
+    if existing is not None:
+        raise PatientEmailAlreadyExistsError(
+            "Patient email already exists.",
+        )
+
+    try:
+        with connection.transaction():
+            patient = patient_queries.create_patient(
+                connection,
+                full_name=command.full_name,
+                email=command.email,
+                phone=command.phone,
+            )
+    except errors.UniqueViolation:
+        existing = patient_queries.get_patient_by_email(
+            connection,
+            email=command.email,
+        )
+        if existing is not None:
+            raise PatientEmailAlreadyExistsError(
+                "Patient email already exists.",
+            ) from None
+        raise PatientPhoneAlreadyExistsError(
+            "Patient phone already exists.",
+        ) from None
+
+    if patient is None:
+        raise RuntimeError("Created patient could not be loaded.")
+
+    return PatientResponse.model_validate(patient)
 
 
 @router.get(

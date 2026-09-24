@@ -4,6 +4,7 @@ export const patientWireSchema = z.object({
   id: z.uuid(),
   full_name: z.string().min(1),
   email: z.email(),
+  phone: z.string().nullable().optional(),
   is_active: z.boolean(),
 });
 

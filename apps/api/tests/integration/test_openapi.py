@@ -6,7 +6,7 @@ pytestmark = pytest.mark.integration
 EXPECTED_OPERATIONS = {
     "/health": {"get"},
     "/health/n8n": {"get"},
-    "/v1/patients": {"get"},
+    "/v1/patients": {"get", "post"},
     "/v1/patients/{patient_id}": {"get"},
     "/v1/patients/{patient_id}/appointments": {"get"},
     "/v1/services": {"get"},
@@ -88,6 +88,7 @@ def test_public_operations_do_not_require_identity_header(
 
     for path, method in (
         ("/v1/patients", "get"),
+        ("/v1/patients", "post"),
         ("/v1/services", "get"),
         ("/v1/availability", "get"),
     ):

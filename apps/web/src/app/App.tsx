@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AppHeader } from "../components/AppHeader";
 import { AppointmentsPanel } from "../components/appointments/AppointmentsPanel";
 import { ChatPanel } from "../components/chat/ChatPanel";
+import { CreatePatientModal } from "../components/patients/CreatePatientModal";
 import { PatientSelector } from "../components/patients/PatientSelector";
 import { useConnectionStatus } from "../hooks/useConnectionStatus";
 import { isAbortError, toErrorMessage } from "../lib/http";
@@ -55,11 +56,13 @@ export function App() {
     AsyncListState<Appointment>
   >(initialAppointmentsState);
   const [appointmentsAreStale, setAppointmentsAreStale] = useState(false);
+  const [isCreatePatientOpen, setIsCreatePatientOpen] = useState(false);
 
   const selectedPatientIdRef = useRef<string | null>(null);
   const messagesRef = useRef<ChatMessage[]>([]);
   const chatAbortRef = useRef<AbortController | null>(null);
   const appointmentsAbortRef = useRef<AbortController | null>(null);
+  const patientsAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -73,15 +76,18 @@ export function App() {
     selectedPatientIdRef.current = selectedPatientId;
   }, [selectedPatientId]);
 
-  useEffect(() => {
-    const controller = new AbortController();
+  const refreshPatients = useCallback(
+    async (options?: { selectInitial?: boolean }) => {
+      patientsAbortRef.current?.abort();
 
-    async function loadPatients() {
-      setPatientsState({
-        data: [],
+      const controller = new AbortController();
+      patientsAbortRef.current = controller;
+
+      setPatientsState((current) => ({
+        data: current.data,
         isLoading: true,
         error: null,
-      });
+      }));
 
       try {
         const patients = await listPatients(controller.signal);
@@ -92,27 +98,32 @@ export function App() {
           error: null,
         });
 
-        const initialPatient =
-          patients.find((patient) => patient.isActive) ?? null;
+        if (options?.selectInitial) {
+          const initialPatient =
+            patients.find((patient) => patient.isActive) ?? null;
 
-        setSelectedPatientId(initialPatient?.id ?? null);
+          setSelectedPatientId(initialPatient?.id ?? null);
+        }
       } catch (error) {
         if (isAbortError(error)) {
           return;
         }
 
-        setPatientsState({
-          data: [],
+        setPatientsState((current) => ({
+          data: current.data,
           isLoading: false,
           error: `Não foi possível carregar os pacientes. ${toErrorMessage(error)}`,
-        });
+        }));
       }
-    }
+    },
+    [],
+  );
 
-    void loadPatients();
+  useEffect(() => {
+    void refreshPatients({ selectInitial: true });
 
-    return () => controller.abort();
-  }, []);
+    return () => patientsAbortRef.current?.abort();
+  }, [refreshPatients]);
 
   const refreshAppointments = useCallback(
     async (patientId: string, preserveExisting = true) => {
@@ -211,6 +222,26 @@ export function App() {
     setConversationStatus("idle");
     setConversationError(null);
     setAppointmentsAreStale(false);
+  }
+
+  async function handlePatientCreated(patient: Patient) {
+    setIsCreatePatientOpen(false);
+
+    await refreshPatients();
+
+    handlePatientChange(patient.id);
+  }
+
+  function handleCreatePatientOpen() {
+    setIsCreatePatientOpen(true);
+  }
+
+  function handleCreatePatientClose() {
+    setIsCreatePatientOpen(false);
+
+    document
+      .querySelector<HTMLElement>('[aria-label="Novo paciente"]')
+      ?.focus();
   }
 
   function appendUserMessage(
@@ -363,6 +394,7 @@ export function App() {
             error={patientsState.error}
             isLoading={patientsState.isLoading}
             onChange={handlePatientChange}
+            onCreate={handleCreatePatientOpen}
             patients={patientsState.data}
             selectedPatientId={selectedPatientId}
           />
@@ -381,6 +413,14 @@ export function App() {
           />
         </aside>
       </main>
+
+      <CreatePatientModal
+        onClose={handleCreatePatientClose}
+        onCreated={(patient) => {
+          void handlePatientCreated(patient);
+        }}
+        open={isCreatePatientOpen}
+      />
     </div>
   );
 }

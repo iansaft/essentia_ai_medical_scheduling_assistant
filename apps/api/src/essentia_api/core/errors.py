@@ -69,6 +69,14 @@ class PatientInactiveError(ConflictError):
     problem_type = "/problems/patient-inactive"
 
 
+class PatientEmailAlreadyExistsError(ConflictError):
+    problem_type = "/problems/patient-email-already-exists"
+
+
+class PatientPhoneAlreadyExistsError(ConflictError):
+    problem_type = "/problems/patient-phone-already-exists"
+
+
 class SlotUnavailableError(ConflictError):
     problem_type = "/problems/slot-unavailable"
 

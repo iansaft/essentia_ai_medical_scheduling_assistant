@@ -3,11 +3,28 @@ import { requestJson } from "../lib/http";
 import {
   appointmentsResponseSchema,
   patientsResponseSchema,
+  patientWireSchema,
 } from "../schemas/api.schemas";
 import type { Appointment, Patient } from "../types/domain";
 
 function unwrapItems<T>(value: T[] | { items: T[] }): T[] {
   return Array.isArray(value) ? value : value.items;
+}
+
+function toPatient(patient: {
+  id: string;
+  full_name: string;
+  email: string;
+  phone?: string | null;
+  is_active: boolean;
+}): Patient {
+  return {
+    id: patient.id,
+    name: patient.full_name,
+    email: patient.email,
+    phone: patient.phone ?? null,
+    isActive: patient.is_active,
+  };
 }
 
 export async function listPatients(signal?: AbortSignal): Promise<Patient[]> {
@@ -23,12 +40,36 @@ export async function listPatients(signal?: AbortSignal): Promise<Patient[]> {
     },
   );
 
-  return unwrapItems(payload).map((patient) => ({
-    id: patient.id,
-    name: patient.full_name,
-    email: patient.email,
-    isActive: patient.is_active,
-  }));
+  return unwrapItems(payload).map(toPatient);
+}
+
+export async function createPatient(
+  input: {
+    fullName: string;
+    email: string;
+    phone?: string | null;
+  },
+  signal?: AbortSignal,
+): Promise<Patient> {
+  const payload = await requestJson(
+    `${env.apiBaseUrl}/v1/patients`,
+    patientWireSchema,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        full_name: input.fullName,
+        email: input.email,
+        phone: input.phone ?? null,
+      }),
+      signal,
+    },
+  );
+
+  return toPatient(payload);
 }
 
 export async function listPatientAppointments(

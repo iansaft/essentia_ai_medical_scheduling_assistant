@@ -1,5 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
+from psycopg import Connection
 
 from tests.support.constants import (
     APPOINTMENT_CANCELLED,
@@ -19,6 +20,13 @@ pytestmark = pytest.mark.integration
 
 def _identity_headers(patient_id) -> dict[str, str]:
     return {"X-Patient-Id": str(patient_id)}
+
+
+def _create_patient(
+    client: TestClient,
+    payload: dict,
+):
+    return client.post("/v1/patients", json=payload)
 
 
 def test_list_patients_returns_all_seed_patients(client: TestClient) -> None:
@@ -216,6 +224,181 @@ def test_list_patient_appointments_invalid_uuid_returns_422(
     response = client.get(
         "/v1/patients/not-a-uuid/appointments",
         headers=_identity_headers(PATIENT_MARIA),
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_patient_happy_path(
+    client: TestClient,
+    db_connection: Connection,
+) -> None:
+    response = _create_patient(
+        client,
+        {
+            "full_name": "Joana Souza",
+            "email": "joana.souza@example.com",
+            "phone": "+5548999990009",
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["full_name"] == "Joana Souza"
+    assert body["email"] == "joana.souza@example.com"
+    assert body["phone"] == "+5548999990009"
+    assert body["is_active"] is True
+    assert body["id"]
+    assert body["created_at"]
+    assert body["updated_at"]
+
+    row = db_connection.execute(
+        """
+        SELECT full_name, email, phone, is_active
+        FROM patients
+        WHERE id = %s
+        """,
+        (body["id"],),
+    ).fetchone()
+    assert row == (
+        "Joana Souza",
+        "joana.souza@example.com",
+        "+5548999990009",
+        True,
+    )
+
+
+def test_create_patient_without_phone(
+    client: TestClient,
+    db_connection: Connection,
+) -> None:
+    response = _create_patient(
+        client,
+        {
+            "full_name": "Joana Souza",
+            "email": "joana.souza@example.com",
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["phone"] is None
+
+    row = db_connection.execute(
+        "SELECT phone FROM patients WHERE id = %s",
+        (body["id"],),
+    ).fetchone()
+    assert row == (None,)
+
+
+def test_create_patient_is_open_without_identity_header(
+    client: TestClient,
+) -> None:
+    response = _create_patient(
+        client,
+        {
+            "full_name": "Joana Souza",
+            "email": "joana.souza@example.com",
+            "phone": "+5548999990009",
+        },
+    )
+
+    assert response.status_code == 201
+
+
+def test_create_patient_duplicate_email_returns_409(
+    client: TestClient,
+) -> None:
+    response = _create_patient(
+        client,
+        {
+            "full_name": "Maria Duplicada",
+            "email": "maria.silva@example.com",
+        },
+    )
+
+    assert_problem(
+        response,
+        409,
+        detail="Patient email already exists.",
+        problem_type="/problems/patient-email-already-exists",
+    )
+
+
+def test_create_patient_duplicate_email_case_insensitive_returns_409(
+    client: TestClient,
+) -> None:
+    response = _create_patient(
+        client,
+        {
+            "full_name": "Maria Duplicada",
+            "email": "MARIA.SILVA@EXAMPLE.COM",
+        },
+    )
+
+    assert_problem(
+        response,
+        409,
+        detail="Patient email already exists.",
+        problem_type="/problems/patient-email-already-exists",
+    )
+
+
+def test_create_patient_duplicate_phone_returns_409(
+    client: TestClient,
+) -> None:
+    response = _create_patient(
+        client,
+        {
+            "full_name": "Telefone Duplicado",
+            "email": "telefone.duplicado@example.com",
+            "phone": "+5548999990001",
+        },
+    )
+
+    assert_problem(
+        response,
+        409,
+        detail="Patient phone already exists.",
+        problem_type="/problems/patient-phone-already-exists",
+    )
+
+
+def test_create_patient_blank_full_name_returns_422(
+    client: TestClient,
+) -> None:
+    response = _create_patient(
+        client,
+        {
+            "full_name": "   ",
+            "email": "joana.souza@example.com",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_patient_blank_phone_returns_422(
+    client: TestClient,
+) -> None:
+    response = _create_patient(
+        client,
+        {
+            "full_name": "Joana Souza",
+            "email": "joana.souza@example.com",
+            "phone": "   ",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_patient_missing_email_returns_422(
+    client: TestClient,
+) -> None:
+    response = _create_patient(
+        client,
+        {"full_name": "Joana Souza"},
     )
 
     assert response.status_code == 422

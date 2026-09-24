@@ -67,7 +67,7 @@ make seed-down && make seed-up
 
 ## Recursos da API REST
 
-Todas as rotas de domínio estão sob o prefixo `/v1`. **Não há autenticação nesta etapa**, mas rotas patient-scoped exigem o header `X-Patient-Id` (UUID do paciente), que deve coincidir com o dono do recurso acessado — mismatch retorna `403`. `GET /v1/patients`, services, availability e health permanecem sem o header.
+Todas as rotas de domínio estão sob o prefixo `/v1`. **Não há autenticação nesta etapa**, mas rotas patient-scoped exigem o header `X-Patient-Id` (UUID do paciente), que deve coincidir com o dono do recurso acessado — mismatch retorna `403`. `GET /v1/patients`, `POST /v1/patients`, services, availability e health permanecem sem o header.
 
 Habilitação de CORS: o middleware `CORSMiddleware` libera apenas as origens em `API_CORS_ORIGINS` (separadas por vírgula; default `http://localhost:5173,http://localhost:4173,http://localhost:8080` — Vite dev, Vite preview e container web).
 
@@ -76,6 +76,7 @@ Habilitação de CORS: o middleware `CORSMiddleware` libera apenas as origens em
 | `GET` | `/health` | Health check do processo HTTP (liveness) |
 | `GET` | `/health/n8n` | Readiness do n8n via probe em `API_N8N_BASE_URL` |
 | `GET` | `/v1/patients` | Lista todos os pacientes (ativos e inativos) |
+| `POST` | `/v1/patients` | Cadastra um novo paciente (aberto) |
 | `GET` | `/v1/patients/{patient_id}` | Dados cadastrais de um paciente |
 | `GET` | `/v1/patients/{patient_id}/appointments` | Histórico de agendamentos do paciente |
 | `GET` | `/v1/services` | Lista serviços ativos |
@@ -108,6 +109,25 @@ Dentro do Compose a API usa `API_N8N_BASE_URL=http://n8n:5678`; em desenvolvimen
 ### `GET /v1/patients`
 
 Sem parâmetros e **sem** `X-Patient-Id` (público — necessário para o seletor de pacientes da UI). `200` com a lista de **todos** os pacientes, ativos e inativos (`PatientResponse`: `id`, `full_name`, `email`, `phone`, `is_active`, timestamps), em ordem determinística (`created_at`, `id`). Pacientes inativos são incluídos com `is_active = false` (WEB-RF-01).
+
+### `POST /v1/patients` — cadastrar paciente
+
+| | |
+|---|---|
+| Header | **sem** `X-Patient-Id` e **sem** `Idempotency-Key` (endpoint aberto) |
+| Body | `{"full_name": "<1–200>", "email": "<3–320>", "phone": "<1–32, opcional>"}` |
+| Sucesso | `201` com `PatientResponse` (`is_active = true`) |
+| Erro | `409` se o email (case-insensitive) ou o phone já existir; `422` se o body for inválido ou com campos em branco |
+
+Cadastro de novo paciente sem autenticação — basta informar `full_name` e `email`; `phone` é opcional (`null` no response quando omitido). Campos são normalizados com trim antes da persistência.
+
+| Condição | HTTP | `problem_type` |
+|---|---|---|
+| Email já cadastrado (qualquer caixa) | `409` | `/problems/patient-email-already-exists` |
+| Phone já cadastrado | `409` | `/problems/patient-phone-already-exists` |
+| Body ausente/inválido ou campo em branco | `422` | FastAPI `detail[]` |
+
+Example no OpenAPI: `joana.souza@example.com` (não colide com as seeds).
 
 ### `GET /v1/patients/{patient_id}`
 

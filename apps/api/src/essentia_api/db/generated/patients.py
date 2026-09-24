@@ -7,6 +7,8 @@ from __future__ import annotations
 
 __all__: collections.abc.Sequence[str] = (
     "QueryResults",
+    "create_patient",
+    "get_patient_by_email",
     "get_patient_by_id",
     "list_patients",
 )
@@ -54,6 +56,42 @@ FROM patients
 ORDER BY
     created_at,
     id
+"""
+
+GET_PATIENT_BY_EMAIL: typing.Final[typing.LiteralString] = """-- name: GetPatientByEmail :one
+SELECT
+    id,
+    full_name,
+    email,
+    phone,
+    is_active,
+    created_at,
+    updated_at
+FROM patients
+WHERE
+    lower(email) = lower(%(p1)s::text)
+"""
+
+CREATE_PATIENT: typing.Final[typing.LiteralString] = """-- name: CreatePatient :one
+INSERT INTO
+    patients (
+        full_name,
+        email,
+        phone
+    )
+VALUES (
+        %(p1)s::text,
+        %(p2)s::text,
+        %(p3)s::text
+    )
+RETURNING
+    id,
+    full_name,
+    email,
+    phone,
+    is_active,
+    created_at,
+    updated_at
 """
 
 
@@ -108,3 +146,17 @@ def list_patients(conn: ConnectionLike) -> QueryResults[models.Patient]:
         return models.Patient(id_=row[0], full_name=row[1], email=row[2], phone=row[3], is_active=row[4], created_at=row[5], updated_at=row[6])
 
     return QueryResults(conn, LIST_PATIENTS, _decode_hook)
+
+
+def get_patient_by_email(conn: ConnectionLike, *, email: str) -> models.Patient | None:
+    row = conn.execute(GET_PATIENT_BY_EMAIL, {"p1": email}).fetchone()
+    if row is None:
+        return None
+    return models.Patient(id_=row[0], full_name=row[1], email=row[2], phone=row[3], is_active=row[4], created_at=row[5], updated_at=row[6])
+
+
+def create_patient(conn: ConnectionLike, *, full_name: str, email: str, phone: str | None) -> models.Patient | None:
+    row = conn.execute(CREATE_PATIENT, {"p1": full_name, "p2": email, "p3": phone}).fetchone()
+    if row is None:
+        return None
+    return models.Patient(id_=row[0], full_name=row[1], email=row[2], phone=row[3], is_active=row[4], created_at=row[5], updated_at=row[6])
