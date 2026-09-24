@@ -9,6 +9,7 @@ dependencies = [
     "fastapi>=0.141.1",
     "psycopg[binary,pool]>=3.3.6",
     "pydantic-settings>=2.15.0",
+    "redis>=8.1.0",
     "structlog>=26.1.0",
     "uvicorn[standard]>=0.53.0",
 ]
@@ -28,5 +29,5 @@ dev = [
     "pytest-cov>=7.1.0",
     "ruff>=0.16.8",
     "sqlc-bin>=1.31.1.post1",
-    "testcontainers[postgres]>=4.15.0",
+    "testcontainers[postgres,redis]>=4.15.0",
 ]

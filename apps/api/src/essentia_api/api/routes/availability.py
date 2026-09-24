@@ -5,9 +5,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 from psycopg import Connection
 
-from essentia_api.api.dependencies import get_db_connection
-from essentia_api.db.generated import availability as availability_queries
+from essentia_api.api.dependencies import (
+    AvailabilityCacheDependency,
+    get_db_connection,
+)
 from essentia_api.schemas.availability import AvailableSlotResponse
+from essentia_api.services import availability as availability_service
 
 router = APIRouter(
     prefix="/availability",
@@ -28,6 +31,7 @@ DatabaseConnection = Annotated[
 )
 def list_availability(
     connection: DatabaseConnection,
+    cache: AvailabilityCacheDependency,
 
     doctor_id: Annotated[
         UUID | None,
@@ -61,14 +65,10 @@ def list_availability(
         ),
     ] = None,
 ) -> list[AvailableSlotResponse]:
-    slots = availability_queries.list_available_slots(
+    return availability_service.list_availability(
         connection,
+        cache=cache,
         doctor_id=doctor_id,
         service_id=service_id,
         target_date=target_date,
     )
-
-    return [
-        AvailableSlotResponse.model_validate(slot)
-        for slot in slots
-    ]

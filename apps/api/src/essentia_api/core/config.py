@@ -61,6 +61,62 @@ class Settings(BaseSettings):
     db_pool_max_size: int = 10
     db_pool_timeout: float = 5.0
 
+    redis_host: str = Field(
+        default="127.0.0.1",
+        validation_alias=AliasChoices(
+            "API_REDIS_HOST",
+        ),
+    )
+    redis_port: int = Field(
+        default=6379,
+        validation_alias=AliasChoices(
+            "API_REDIS_PORT",
+        ),
+    )
+    redis_password: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "API_REDIS_PASSWORD",
+        ),
+    )
+    redis_db: int = Field(
+        default=0,
+        validation_alias=AliasChoices(
+            "API_REDIS_DB",
+        ),
+    )
+    redis_socket_timeout: float = Field(
+        default=2.0,
+        validation_alias=AliasChoices(
+            "API_REDIS_SOCKET_TIMEOUT",
+        ),
+    )
+    redis_connect_timeout: float = Field(
+        default=2.0,
+        validation_alias=AliasChoices(
+            "API_REDIS_CONNECT_TIMEOUT",
+        ),
+    )
+
+    availability_cache_enabled: bool = Field(
+        default=True,
+        validation_alias=AliasChoices(
+            "AVAILABILITY_CACHE_ENABLED",
+        ),
+    )
+    availability_cache_ttl_seconds: int = Field(
+        default=30,
+        validation_alias=AliasChoices(
+            "AVAILABILITY_CACHE_TTL_SECONDS",
+        ),
+    )
+    availability_cache_ttl_jitter_seconds: int = Field(
+        default=10,
+        validation_alias=AliasChoices(
+            "AVAILABILITY_CACHE_TTL_JITTER_SECONDS",
+        ),
+    )
+
     business_timezone: str = "America/Sao_Paulo"
 
     n8n_base_url: str = Field(

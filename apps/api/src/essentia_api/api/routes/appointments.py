@@ -10,7 +10,11 @@ from fastapi import (
 )
 from psycopg import Connection
 
-from essentia_api.api.dependencies import PatientIdentity, get_db_connection
+from essentia_api.api.dependencies import (
+    AvailabilityCacheDependency,
+    PatientIdentity,
+    get_db_connection,
+)
 from essentia_api.schemas.appointments import (
     AppointmentResponse,
     CancelAppointmentRequest,
@@ -85,12 +89,14 @@ def create_appointment(
     idempotency_key: IdempotencyKey,
     caller_patient_id: PatientIdentity,
     connection: DatabaseConnection,
+    cache: AvailabilityCacheDependency,
 ) -> AppointmentResponse:
     return appointment_service.create_appointment(
         connection,
         command=command,
         idempotency_key=idempotency_key,
         caller_patient_id=caller_patient_id,
+        cache=cache,
     )
 
 
@@ -114,6 +120,7 @@ def cancel_appointment(
     idempotency_key: IdempotencyKey,
     caller_patient_id: PatientIdentity,
     connection: DatabaseConnection,
+    cache: AvailabilityCacheDependency,
 ) -> AppointmentResponse:
     return appointment_service.cancel_appointment(
         connection,
@@ -121,4 +128,5 @@ def cancel_appointment(
         command=command,
         idempotency_key=idempotency_key,
         caller_patient_id=caller_patient_id,
+        cache=cache,
     )

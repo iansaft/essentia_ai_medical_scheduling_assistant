@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from essentia_api.api.router import api_router
 from essentia_api.api.routes.health import router as health_router
+from essentia_api.cache.availability import create_availability_cache
+from essentia_api.cache.redis import create_redis_client
 from essentia_api.core.config import (
     Settings,
     load_settings,
@@ -40,8 +42,15 @@ def create_app(
         pool = create_connection_pool(
             app_settings,
         )
+        redis_client = create_redis_client(
+            app_settings,
+        )
 
         app.state.db_pool = pool
+        app.state.availability_cache = create_availability_cache(
+            app_settings,
+            redis_client,
+        )
 
         try:
             pool.open(
@@ -49,6 +58,8 @@ def create_app(
             )
             yield
         finally:
+            if redis_client is not None:
+                redis_client.close()
             pool.close()
 
     app = FastAPI(

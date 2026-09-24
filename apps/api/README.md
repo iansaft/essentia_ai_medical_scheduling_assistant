@@ -14,16 +14,17 @@ A API é a fonte da verdade para regras de negócio transacionais (o LLM/Agente 
 | Web framework | FastAPI + Uvicorn (factory mode: `essentia_api.main:create_app --factory`) |
 | Linguagem | Python ≥ 3.14 |
 | Banco | PostgreSQL 18 (sem ORM — Psycopg 3 + `psycopg_pool`) |
+| Cache | Redis 8 (cache-aside de disponibilidade — ver [Cache de disponibilidade](#cache-de-disponibilidade-redis)) |
 | Acesso a dados | SQL tipado gerado pelo **sqlc** (`src/essentia_api/db/generated/` — não editar manualmente) |
 | Schema/seed | `golang-migrate` (migrations em `db/migrations`, seeds em `db/seeds`, tabelas de controle independentes) |
-| Testes | pytest + Testcontainers (PostgreSQL 18.4 descartável por execução) |
+| Testes | pytest + Testcontainers (PostgreSQL 18.4 e Redis 8.10 descartáveis por execução) |
 | Contrato HTTP | OpenAPI gerado pelo FastAPI (`/docs`, `/openapi.json`) |
 
 ## Como rodar a API
 
 ### Opção A — Docker Compose (recomendado para avaliar)
 
-Sobe PostgreSQL → migrations → seeds → API nesta ordem (healthcheck/`depends_on` garantem a ordem):
+Sobe PostgreSQL → migrations → seeds → Redis → API nesta ordem (healthcheck/`depends_on` garantem a ordem):
 
 ```bash
 # na raiz do repositório
@@ -36,7 +37,7 @@ curl http://localhost:8000/health         # {"status":"ok"}
 curl http://localhost:8000/health/n8n     # {"status":"ok"} quando o n8n está pronto
 ```
 
-O Compose sobe `postgres` → migrations/seeds → `api` → `n8n` → `web` (healthchecks/`depends_on` garantem a ordem):
+O Compose sobe `postgres` → migrations/seeds → `redis` → `api` → `n8n` → `web` (healthchecks/`depends_on` garantem a ordem):
 
 - API: `http://localhost:8000` (porta `API_PORT`, default 8000)
 - n8n: `http://localhost:5678` (porta `N8N_PORT`)
@@ -294,6 +295,62 @@ Todas as respostas (sucesso e erro) ecoam `X-Correlation-ID`. Se o cliente (n8n,
 - `API_LOG_LEVEL` (default `INFO`) — nível mínimo;
 - `API_LOG_JSON` (default `true`) — JSON lines em stdout (prod); `false` → console legível (dev/test).
 
+### Observações de `GET /v1/availability`
+
+A resposta é servida via cache-aside em Redis (ver [Cache de disponibilidade](#cache-de-disponibilidade-redis)); o contrato HTTP (filtros, shape, códigos) não muda.
+
+## Cache de disponibilidade (Redis)
+
+`GET /v1/availability` usa **cache-aside** em Redis; o PostgreSQL continua sendo a única fonte da verdade. Implementação: `services/availability.py` (orquestração) + `cache/availability.py` (operações) — a rota é um delegate fino.
+
+### Estratégia
+
+| Aspecto | Decisão |
+|---|---|
+| Padrão | Cache-aside: `GET` → hit serve o JSON; miss consulta o PostgreSQL e popula o cache |
+| Autoridade | Redis **nunca** autoriza booking — double-booking continua garantido pelo índice único no PostgreSQL |
+| TTL | `AVAILABILITY_CACHE_TTL_SECONDS` (default `30`) + jitter aleatório `0…AVAILABILITY_CACHE_TTL_JITTER_SECONDS` (default `10`) → TTL efetivo 30–40s |
+| Jitter | Espalha expirações simultâneas de chaves populadas no mesmo instante (mitiga thundering herd na expiração) |
+| Chave | `availability:v1:{service_id\|all}:{doctor_id\|all}:{date\|all}` — versão (`v1`) para evolução de formato, partes ausentes viram `all` |
+| Data na chave | Data civil em `BUSINESS_TIMEZONE` (`America/Sao_Paulo`) extraída de `starts_at` (TIMESTAMPTZ) |
+| Payload | JSON serializado dos `AvailableSlotResponse` (inclusive lista vazia `[]` — é um hit válido) |
+| Desabilitar | `AVAILABILITY_CACHE_ENABLED=false` → bypass total (sem cliente Redis nas rotas de leitura) |
+
+### Consistência e invalidação
+
+- **Invalidação pós-commit**: `POST /v1/appointments` e `POST .../cancel` limpam as chaves **somente após** o `COMMIT` do PostgreSQL — uma falha de `DEL` nunca desfaz uma escrita confirmada (o pior caso é stale até o TTL expirar);
+- **Escopo do `DEL`**: cross product de 8 chaves `{service|all} × {doctor|all} × {date|all}` derivado do appointment (`service_id`, `doctor_id`, data de `starts_at`) — remove qualquer variante de filtro já populada;
+- **Falha de escrita idempotente (replay)**: não invalida (nenhuma mudança de estado);
+- **Booking rejeitado** (`409`, ex.: double booking): não invalida (nenhuma mudança);
+- **Fail-open**: falha de conexão/timeout do Redis em `get`/`set`/`delete` cai para o caminho PostgreSQL e loga `availability_cache_read_error` / `write_error` / `invalidation_error` — **nunca** gera `500` nem rollback;
+- **Post-commit transactional** via `with connection.transaction()` em `services/appointments.py`: response é montado dentro da transação; o `DEL` roda fora, após confirmar.
+
+### Trade-offs
+
+- **Janela de staleness**: entre o commit de um booking/cancelamento concorrente e o `DEL`, uma leitura pode ver estado antigo; em falha de invalidação, até 30–40s (TTL). Aceitável para disponibilidade de agenda;
+- **Stampede**: mitigado por TTL curto + jitter; **não** há single-flight/lock entre instâncias — sob carga extrema de cold start é possível thundering herd ao PostgreSQL (documentado como follow-up: `SET NX` de request coalescing);
+- **Hit ratio**: `hits / (hits + misses)` — medir com `availability_cache_hit` vs `availability_cache_miss` nos logs structlog; com TTL 30s e tráfego de leitura >> escrita, espera-se razão alta, e cada booking zera as variantes afetadas;
+- **Invalidação broad**: o `DEL` de 8 keys apaga também variantes não consultadas (ex.: chave inexistente) — `DEL` multi-key é idempotente e barato; mais simples que tracking de quais variantes existem.
+
+### Evidências manuais (stack via Docker Compose)
+
+Executadas contra `docker compose up -d --build` com seeds frescas:
+
+| # | Comando | Resultado observado |
+|---|---|---|
+| 1 | `redis-cli -a $REDIS_PASSWORD ping` | `PONG`; `--scan --pattern availability:*` → `0` keys |
+| 2 | `GET /v1/availability?date=2027-04-12` (1ª vez) | `200`; log `availability_cache_miss` + `availability_cache_set` (ttl 31s); key `availability:v1:all:all:2027-04-12` criada |
+| 3 | Mesmo `GET` (2ª vez) | `200`; log `availability_cache_hit`; payload idêntico ao da 1ª chamada (5 slots) |
+| 4 | `PTTL availability:v1:all:all:2027-04-12` | `21542` ms — dentro da janela `0 < ttl ≤ 40000` |
+| 5 | `GET availability:v1:all:all:2027-04-12` | JSON array de `AvailableSlotResponse` (ex.: `Dr. Bruno Martins`, `"price":"180.00"`) |
+| 6 | `POST /v1/appointments` (slot `8e06b231-…`) | `201`; log `availability_cache_invalidation` com as **8** keys; scan → vazio |
+| 7 | `POST /v1/appointments/{id}/cancel` | `200` (`status: cancelled`); novo log de invalidação com 8 keys; scan → vazio |
+| 8 | `docker compose stop redis` → `GET /v1/availability` | `200` com 5 slots (fail-open) + log `availability_cache_read_error`; Redis reiniciado → `PONG` |
+
+### Logs estruturados (structlog)
+
+`availability_cache_hit` · `availability_cache_miss` · `availability_cache_set` · `availability_cache_invalidation` · `availability_cache_read_error` · `availability_cache_write_error` · `availability_cache_invalidation_error` — todos com `cache_key`, filtros (`service_id`/`doctor_id`/`date`), `correlation_id` do request.
+
 ## Dados de demonstração (seeds)
 
 IDs usados nos examples do OpenAPI — todos existem em `db/seeds/`:
@@ -425,18 +482,21 @@ O FastAPI é a única fonte da documentação HTTP: endpoints, parâmetros, sche
 
 ## Testes automatizados
 
-A suíte roda com Testcontainers (PostgreSQL descartável) e não depende da API local:
+A suíte roda com Testcontainers (PostgreSQL e Redis descartáveis) e não depende da API local:
 
 ```bash
-make test              # suíte completa com coverage (mínimo 85%)
-make test-fast         # sem coverage
-make test-openapi      # contrato OpenAPI (operações e header Idempotency-Key)
-make test-appointments # booking, cancelamento e idempotência
-make test-availability # disponibilidade e filtros
-make test-db           # invariantes de banco (constraints)
-make check             # sqlc + suíte da API + typecheck e testes do web
-make web-check         # apenas validações do web (typecheck + Vitest)
+make test                  # suíte completa com coverage (mínimo 85%)
+make test-fast             # sem coverage
+make test-openapi          # contrato OpenAPI (operações e header Idempotency-Key)
+make test-appointments     # booking, cancelamento e idempotência
+make test-availability     # disponibilidade e filtros
+make test-availability-cache # cache de disponibilidade (unit + integração com Redis real)
+make test-db               # invariantes de banco (constraints)
+make check                 # sqlc + suíte da API + typecheck e testes do web
+make web-check             # apenas validações do web (typecheck + Vitest)
 ```
+
+O cache tem testes unitários (`tests/unit/test_availability_cache.py` — telemetria, chaves, TTL/jitter, fail-open com mocks) e de integração (`tests/integration/test_availability_cache.py` — HIT/MISS contra Redis real, expiração, invalidação pós-commit, outage total, flag desabilitada).
 
 Convenções relevantes (detalhes em [`../../docs/testing-and-operations.md`](../../docs/testing-and-operations.md)):
 
@@ -451,10 +511,13 @@ Convenções relevantes (detalhes em [`../../docs/testing-and-operations.md`](..
 apps/api/src/essentia_api/
 ├── api/
 │   ├── routes/          # adaptação HTTP (health, patients, services, availability, appointments)
-│   ├── dependencies.py  # pool de conexão via app.state
+│   ├── dependencies.py  # pool de conexão + cache via app.state
 │   └── router.py        # prefixo /v1
+├── cache/
+│   ├── availability.py  # AvailabilityCache: get/set/invalidation, chaves, serialização
+│   └── redis.py         # create_redis_client (lifespan da aplicação)
 ├── core/
-│   ├── config.py        # Settings (env vars, logging)
+│   ├── config.py        # Settings (env vars, logging, Redis/cache)
 │   ├── errors.py        # hierarchy AppError + handlers RFC 7807
 │   ├── logging.py       # setup structlog (JSON stdout / console)
 │   ├── middleware.py    # CorrelationIdMiddleware (X-Correlation-ID)
@@ -465,6 +528,7 @@ apps/api/src/essentia_api/
 │   └── generated/       # persistência gerada (não editar)
 ├── schemas/             # contratos Pydantic (request/response + examples OpenAPI)
 ├── services/            # regras de uso e transações de escrita
+│   └── availability.py  # cache-aside de leitura (services de escrita invalidam)
 └── main.py              # Application Factory (create_app)
 ```
 

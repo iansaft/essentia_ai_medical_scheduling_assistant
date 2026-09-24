@@ -6,6 +6,8 @@ from fastapi import Depends, Header, Request
 from psycopg import Connection
 from psycopg_pool import ConnectionPool
 
+from essentia_api.cache.availability import AvailabilityCache
+
 
 def get_patient_identity(
     x_patient_id: Annotated[
@@ -64,3 +66,33 @@ def get_db_connection(
 
     with pool.connection() as connection:
         yield connection
+
+
+def get_availability_cache(
+    request: Request,
+) -> AvailabilityCache:
+    """
+    Resolve the availability cache owned by the current FastAPI
+    application instance.
+    """
+    cache = getattr(
+        request.app.state,
+        "availability_cache",
+        None,
+    )
+
+    if cache is None:
+        raise RuntimeError(
+            "Availability cache is not initialized."
+        )
+
+    return cast(
+        AvailabilityCache,
+        cache,
+    )
+
+
+AvailabilityCacheDependency = Annotated[
+    AvailabilityCache,
+    Depends(get_availability_cache),
+]

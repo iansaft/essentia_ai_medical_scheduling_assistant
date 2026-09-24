@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from psycopg import Connection
 
+from essentia_api.cache.availability import AvailabilityCache
 from tests.support.constants import (
     APPOINTMENT_CANCELLED,
     APPOINTMENT_COMPLETED,
@@ -409,6 +410,7 @@ def test_create_appointment_requires_idempotency_key(client: TestClient) -> None
 
 def test_concurrent_booking_allows_exactly_one_appointment(
     test_database: str,
+    availability_cache: AvailabilityCache,
 ) -> None:
     from essentia_api.schemas.appointments import CreateAppointmentRequest
     from essentia_api.services.appointments import (
@@ -430,6 +432,7 @@ def test_concurrent_booking_allows_exactly_one_appointment(
                     ),
                     idempotency_key=idempotency_key,
                     caller_patient_id=patient_id,
+                    cache=availability_cache,
                 )
                 return "created"
             except SlotUnavailableError:

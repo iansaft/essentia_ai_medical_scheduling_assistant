@@ -6,6 +6,7 @@ from uuid import UUID
 from psycopg import Connection
 from psycopg.types.json import Jsonb
 
+from essentia_api.cache.availability import AvailabilityCache
 from essentia_api.core.errors import (
     AppointmentNotCancellableError,
     AppointmentNotFoundError,
@@ -175,6 +176,7 @@ def create_appointment(
     command: CreateAppointmentRequest,
     idempotency_key: str,
     caller_patient_id: UUID,
+    cache: AvailabilityCache,
 ) -> AppointmentResponse:
     if command.patient_id != caller_patient_id:
         raise PatientAccessDeniedError("Patient access denied.")
@@ -261,7 +263,15 @@ def create_appointment(
             response_status=201,
             response=response,
         )
-        return response
+
+    # The transaction committed successfully above: only now is it
+    # correct to drop the availability entries that may show the slot.
+    cache.invalidate_for_appointment(
+        service_id=response.service_id,
+        doctor_id=response.doctor_id,
+        starts_at=response.starts_at,
+    )
+    return response
 
 
 def cancel_appointment(
@@ -271,6 +281,7 @@ def cancel_appointment(
     command: CancelAppointmentRequest,
     idempotency_key: str,
     caller_patient_id: UUID,
+    cache: AvailabilityCache,
 ) -> AppointmentResponse:
     request_hash = _request_hash(
         operation=CANCEL_APPOINTMENT_OPERATION,
@@ -339,4 +350,12 @@ def cancel_appointment(
             response_status=200,
             response=response,
         )
-        return response
+
+    # Cancellation releases the slot for the availability query; drop
+    # the affected cache entries only after the commit succeeded.
+    cache.invalidate_for_appointment(
+        service_id=response.service_id,
+        doctor_id=response.doctor_id,
+        starts_at=response.starts_at,
+    )
+    return response

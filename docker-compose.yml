@@ -111,6 +111,9 @@ services:
       API_REDIS_DB: ${API_REDIS_DB:-0}
       API_REDIS_SOCKET_TIMEOUT: ${API_REDIS_SOCKET_TIMEOUT:-2}
       API_REDIS_CONNECT_TIMEOUT: ${API_REDIS_CONNECT_TIMEOUT:-2}
+      AVAILABILITY_CACHE_ENABLED: ${AVAILABILITY_CACHE_ENABLED:-true}
+      AVAILABILITY_CACHE_TTL_SECONDS: ${AVAILABILITY_CACHE_TTL_SECONDS:-30}
+      AVAILABILITY_CACHE_TTL_JITTER_SECONDS: ${AVAILABILITY_CACHE_TTL_JITTER_SECONDS:-10}
       BUSINESS_TIMEZONE: ${BUSINESS_TIMEZONE:-America/Sao_Paulo}
       API_CORS_ORIGINS: ${API_CORS_ORIGINS:-http://localhost:5173,http://localhost:4173,http://localhost:8080}
       API_N8N_BASE_URL: http://n8n:5678
@@ -118,6 +121,8 @@ services:
       - "${API_PORT:-8000}:8000"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       migrations:
         condition: service_completed_successfully

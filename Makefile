@@ -291,6 +291,11 @@ test-availability: ## Run availability integration tests
 	@echo "==> Running availability integration tests..."
 	cd $(API_PATH) && $(PYTEST_CMD) tests/integration/test_availability.py -vv
 
+.PHONY: test-availability-cache
+test-availability-cache: ## Run availability cache unit and integration tests
+	@echo "==> Running availability cache tests..."
+	cd $(API_PATH) && $(PYTEST_CMD) tests/unit/test_availability_cache.py tests/integration/test_availability_cache.py -vv
+
 .PHONY: test-db
 test-db: ## Run PostgreSQL database invariant tests
 	@echo "==> Running database invariant tests..."
