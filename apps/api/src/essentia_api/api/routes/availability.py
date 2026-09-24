@@ -9,7 +9,6 @@ from essentia_api.api.dependencies import get_db_connection
 from essentia_api.db.generated import availability as availability_queries
 from essentia_api.schemas.availability import AvailableSlotResponse
 
-
 router = APIRouter(
     prefix="/availability",
     tags=["Availability"],

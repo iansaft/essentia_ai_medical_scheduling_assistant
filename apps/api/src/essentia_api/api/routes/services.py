@@ -1,17 +1,17 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Path, status
+from fastapi import APIRouter, Depends, Path, status
 from psycopg import Connection
 
 from essentia_api.api.dependencies import get_db_connection
+from essentia_api.core.errors import ServiceNotFoundError
 from essentia_api.db.generated import payment_methods as payment_method_queries
 from essentia_api.db.generated import services as service_queries
 from essentia_api.schemas.catalog import (
     PaymentMethodResponse,
     ServiceResponse,
 )
-
 
 router = APIRouter(
     prefix="/services",
@@ -63,10 +63,7 @@ def get_service(
     )
 
     if service is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Service not found.",
-        )
+        raise ServiceNotFoundError("Service not found.")
 
     return ServiceResponse.model_validate(service)
 
@@ -94,10 +91,7 @@ def list_service_payment_methods(
     )
 
     if service is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Service not found.",
-        )
+        raise ServiceNotFoundError("Service not found.")
 
     payment_methods = (
         payment_method_queries.list_payment_methods_by_service_id(

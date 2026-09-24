@@ -18,4 +18,6 @@ CREATE TABLE patients (
 
 CREATE UNIQUE INDEX uq_patients_email_lower ON patients (lower(email));
 
+CREATE UNIQUE INDEX uq_patients_phone ON patients (phone);
+
 COMMIT;

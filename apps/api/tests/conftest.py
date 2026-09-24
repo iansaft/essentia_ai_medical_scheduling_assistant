@@ -22,7 +22,6 @@ from tests.support.database import (
     reset_to_seed_state,
 )
 
-
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 MIGRATIONS_DIRECTORY = (
     REPOSITORY_ROOT
@@ -112,6 +111,8 @@ def test_settings(
         db_pool_max_size=10,
         db_pool_timeout=5.0,
         business_timezone="America/Sao_Paulo",
+        log_level="WARNING",
+        log_json=False,
     )
 
 

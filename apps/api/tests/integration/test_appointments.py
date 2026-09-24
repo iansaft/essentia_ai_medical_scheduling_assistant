@@ -25,7 +25,7 @@ from tests.support.constants import (
     SLOT_HELENA_CARDIO_OCCUPIED,
     SLOT_RAFAEL_DERMATOLOGY_BLOCKED,
 )
-
+from tests.support.problem import assert_problem
 
 pytestmark = pytest.mark.integration
 
@@ -36,8 +36,13 @@ def _create_appointment(
     patient_id: UUID = PATIENT_CARLOS,
     slot_id: UUID = SLOT_HELENA_CARDIO_AVAILABLE,
     idempotency_key: str | None = None,
+    caller_patient_id: UUID | None = None,
 ):
-    headers = {}
+    headers = {
+        "X-Patient-Id": str(
+            caller_patient_id if caller_patient_id is not None else patient_id
+        ),
+    }
     if idempotency_key is not None:
         headers["Idempotency-Key"] = idempotency_key
 
@@ -57,8 +62,11 @@ def _cancel_appointment(
     appointment_id: UUID,
     reason: str,
     idempotency_key: str | None = None,
+    caller_patient_id: UUID = PATIENT_MARIA,
 ):
-    headers = {}
+    headers = {
+        "X-Patient-Id": str(caller_patient_id),
+    }
     if idempotency_key is not None:
         headers["Idempotency-Key"] = idempotency_key
 
@@ -70,7 +78,10 @@ def _cancel_appointment(
 
 
 def test_get_existing_appointment(client: TestClient) -> None:
-    response = client.get(f"/v1/appointments/{APPOINTMENT_SCHEDULED}")
+    response = client.get(
+        f"/v1/appointments/{APPOINTMENT_SCHEDULED}",
+        headers={"X-Patient-Id": str(PATIENT_MARIA)},
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -82,15 +93,39 @@ def test_get_existing_appointment(client: TestClient) -> None:
     assert body["currency"] == "BRL"
 
 
-def test_get_nonexistent_appointment_returns_404(client: TestClient) -> None:
-    response = client.get(f"/v1/appointments/{NON_EXISTENT_UUID}")
+def test_get_appointment_as_another_patient_returns_403(
+    client: TestClient,
+) -> None:
+    response = client.get(
+        f"/v1/appointments/{APPOINTMENT_SCHEDULED}",
+        headers={"X-Patient-Id": str(PATIENT_CARLOS)},
+    )
 
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Appointment not found."
+    assert_problem(response, 403, detail="Patient access denied.")
+
+
+def test_get_appointment_requires_patient_identity_header(
+    client: TestClient,
+) -> None:
+    response = client.get(f"/v1/appointments/{APPOINTMENT_SCHEDULED}")
+
+    assert response.status_code == 422
+
+
+def test_get_nonexistent_appointment_returns_404(client: TestClient) -> None:
+    response = client.get(
+        f"/v1/appointments/{NON_EXISTENT_UUID}",
+        headers={"X-Patient-Id": str(PATIENT_MARIA)},
+    )
+
+    assert_problem(response, 404, detail="Appointment not found.")
 
 
 def test_historical_appointment_keeps_price_snapshot(client: TestClient) -> None:
-    response = client.get(f"/v1/appointments/{APPOINTMENT_COMPLETED}")
+    response = client.get(
+        f"/v1/appointments/{APPOINTMENT_COMPLETED}",
+        headers={"X-Patient-Id": str(PATIENT_ANA)},
+    )
 
     assert response.status_code == 200
     assert Decimal(str(response.json()["price_amount"])) == Decimal("300.00")
@@ -161,10 +196,41 @@ def test_created_appointment_keeps_price_snapshot_after_catalog_change(
         (SERVICE_CARDIOLOGY,),
     )
 
-    response = client.get(f"/v1/appointments/{appointment_id}")
+    response = client.get(
+        f"/v1/appointments/{appointment_id}",
+        headers={"X-Patient-Id": str(PATIENT_CARLOS)},
+    )
 
     assert response.status_code == 200
     assert Decimal(str(response.json()["price_amount"])) == Decimal("320.00")
+
+
+def test_create_appointment_rejects_patient_identity_mismatch(
+    client: TestClient,
+) -> None:
+    response = _create_appointment(
+        client,
+        patient_id=PATIENT_CARLOS,
+        caller_patient_id=PATIENT_MARIA,
+        idempotency_key="create-identity-mismatch",
+    )
+
+    assert_problem(response, 403, detail="Patient access denied.")
+
+
+def test_create_appointment_requires_patient_identity_header(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/v1/appointments",
+        headers={"Idempotency-Key": "create-missing-identity"},
+        json={
+            "patient_id": str(PATIENT_CARLOS),
+            "slot_id": str(SLOT_HELENA_CARDIO_AVAILABLE),
+        },
+    )
+
+    assert response.status_code == 422
 
 
 def test_create_appointment_rejects_inactive_patient(client: TestClient) -> None:
@@ -174,8 +240,11 @@ def test_create_appointment_rejects_inactive_patient(client: TestClient) -> None
         idempotency_key="inactive-patient",
     )
 
-    assert response.status_code == 409
-    assert response.json()["detail"] == "Inactive patients cannot book appointments."
+    assert_problem(
+        response,
+        409,
+        detail="Inactive patients cannot book appointments.",
+    )
 
 
 def test_create_appointment_returns_404_for_unknown_slot(client: TestClient) -> None:
@@ -185,8 +254,7 @@ def test_create_appointment_returns_404_for_unknown_slot(client: TestClient) -> 
         idempotency_key="unknown-slot",
     )
 
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Appointment slot not found."
+    assert_problem(response, 404, detail="Appointment slot not found.")
 
 
 def test_create_appointment_rejects_blocked_slot(client: TestClient) -> None:
@@ -196,8 +264,7 @@ def test_create_appointment_rejects_blocked_slot(client: TestClient) -> None:
         idempotency_key="blocked-slot",
     )
 
-    assert response.status_code == 409
-    assert response.json()["detail"] == "Appointment slot is not open."
+    assert_problem(response, 409, detail="Appointment slot is not open.")
 
 
 def test_create_appointment_rejects_past_open_slot(
@@ -226,8 +293,11 @@ def test_create_appointment_rejects_past_open_slot(
         idempotency_key="past-slot",
     )
 
-    assert response.status_code == 409
-    assert response.json()["detail"] == "Past appointment slots cannot be booked."
+    assert_problem(
+        response,
+        409,
+        detail="Past appointment slots cannot be booked.",
+    )
 
 
 def test_create_appointment_rejects_inactive_doctor(
@@ -244,8 +314,11 @@ def test_create_appointment_rejects_inactive_doctor(
         idempotency_key="inactive-doctor",
     )
 
-    assert response.status_code == 409
-    assert response.json()["detail"] == "The doctor assigned to this slot is inactive."
+    assert_problem(
+        response,
+        409,
+        detail="The doctor assigned to this slot is inactive.",
+    )
 
 
 def test_create_appointment_rejects_inactive_service(
@@ -262,8 +335,11 @@ def test_create_appointment_rejects_inactive_service(
         idempotency_key="inactive-service",
     )
 
-    assert response.status_code == 409
-    assert response.json()["detail"] == "The service assigned to this slot is inactive."
+    assert_problem(
+        response,
+        409,
+        detail="The service assigned to this slot is inactive.",
+    )
 
 
 def test_create_appointment_prevents_double_booking(client: TestClient) -> None:
@@ -279,8 +355,7 @@ def test_create_appointment_prevents_double_booking(client: TestClient) -> None:
     )
 
     assert first.status_code == 201
-    assert second.status_code == 409
-    assert second.json()["detail"] == "Appointment slot is already booked."
+    assert_problem(second, 409, detail="Appointment slot is already booked.")
 
 
 def test_create_appointment_replays_same_idempotency_key(
@@ -322,7 +397,7 @@ def test_create_appointment_rejects_idempotency_key_reused_with_new_payload(
     )
 
     assert first.status_code == 201
-    assert second.status_code == 409
+    assert_problem(second, 409)
     assert "different request" in second.json()["detail"]
 
 
@@ -354,6 +429,7 @@ def test_concurrent_booking_allows_exactly_one_appointment(
                         slot_id=SLOT_HELENA_CARDIO_AVAILABLE,
                     ),
                     idempotency_key=idempotency_key,
+                    caller_patient_id=patient_id,
                 )
                 return "created"
             except SlotUnavailableError:
@@ -401,6 +477,37 @@ def test_cancel_scheduled_appointment(
     assert row[3] == 1
 
 
+def test_cancel_appointment_as_another_patient_returns_403(
+    client: TestClient,
+    db_connection: Connection,
+) -> None:
+    response = _cancel_appointment(
+        client,
+        appointment_id=APPOINTMENT_SCHEDULED,
+        reason="Unauthorized cancellation attempt.",
+        idempotency_key="cancel-foreign-patient",
+        caller_patient_id=PATIENT_CARLOS,
+    )
+
+    assert_problem(response, 403, detail="Patient access denied.")
+
+    row = db_connection.execute(
+        "SELECT status FROM appointments WHERE id = %s",
+        (APPOINTMENT_SCHEDULED,),
+    ).fetchone()
+    assert row[0] == "scheduled"
+
+
+def test_cancel_requires_patient_identity_header(client: TestClient) -> None:
+    response = client.post(
+        f"/v1/appointments/{APPOINTMENT_SCHEDULED}/cancel",
+        headers={"Idempotency-Key": "cancel-missing-identity"},
+        json={"cancellation_reason": "Patient requested cancellation."},
+    )
+
+    assert response.status_code == 422
+
+
 def test_cancel_nonexistent_appointment_returns_404(client: TestClient) -> None:
     response = _cancel_appointment(
         client,
@@ -409,8 +516,7 @@ def test_cancel_nonexistent_appointment_returns_404(client: TestClient) -> None:
         idempotency_key="cancel-nonexistent",
     )
 
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Appointment not found."
+    assert_problem(response, 404, detail="Appointment not found.")
 
 
 def test_cancel_already_cancelled_appointment_returns_409(client: TestClient) -> None:
@@ -419,26 +525,41 @@ def test_cancel_already_cancelled_appointment_returns_409(client: TestClient) ->
         appointment_id=APPOINTMENT_CANCELLED,
         reason="Second cancellation attempt.",
         idempotency_key="cancel-already-cancelled",
+        caller_patient_id=PATIENT_CARLOS,
     )
 
-    assert response.status_code == 409
-    assert response.json()["detail"] == "Only scheduled appointments can be cancelled."
+    assert_problem(
+        response,
+        409,
+        detail="Only scheduled appointments can be cancelled.",
+    )
 
 
-@pytest.mark.parametrize("appointment_id", [APPOINTMENT_COMPLETED, APPOINTMENT_NO_SHOW])
+@pytest.mark.parametrize(
+    ("appointment_id", "owner_patient_id"),
+    [
+        (APPOINTMENT_COMPLETED, PATIENT_ANA),
+        (APPOINTMENT_NO_SHOW, PATIENT_CARLOS),
+    ],
+)
 def test_cancel_historical_appointment_returns_409(
     client: TestClient,
     appointment_id: UUID,
+    owner_patient_id: UUID,
 ) -> None:
     response = _cancel_appointment(
         client,
         appointment_id=appointment_id,
         reason="Invalid historical cancellation.",
         idempotency_key=f"cancel-{appointment_id}",
+        caller_patient_id=owner_patient_id,
     )
 
-    assert response.status_code == 409
-    assert response.json()["detail"] == "Only scheduled appointments can be cancelled."
+    assert_problem(
+        response,
+        409,
+        detail="Only scheduled appointments can be cancelled.",
+    )
 
 
 def test_cancel_replays_same_idempotency_key(client: TestClient) -> None:
@@ -477,7 +598,7 @@ def test_cancel_rejects_idempotency_key_reused_with_new_payload(
     )
 
     assert first.status_code == 200
-    assert second.status_code == 409
+    assert_problem(second, 409)
     assert "different request" in second.json()["detail"]
 
 

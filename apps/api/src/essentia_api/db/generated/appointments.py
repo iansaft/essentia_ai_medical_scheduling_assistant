@@ -28,9 +28,10 @@ if typing.TYPE_CHECKING:
     import collections.abc
     import datetime
     import decimal
+    import uuid
+
     import psycopg
     import psycopg.rows
-    import uuid
 
     type QueryResultsArgsType = int | float | str | memoryview | decimal.Decimal | uuid.UUID | datetime.date | datetime.time | datetime.datetime | datetime.timedelta | collections.abc.Sequence[QueryResultsArgsType] | None
 

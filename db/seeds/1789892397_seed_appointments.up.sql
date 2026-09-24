@@ -44,7 +44,7 @@ VALUES (
         'cancelled',
         320.00,
         'BRL',
-        'Patient requested cancellation',
+        'Cancelamento solicitado pelo paciente',
         CURRENT_TIMESTAMP - INTERVAL '1 hour'
     );
 

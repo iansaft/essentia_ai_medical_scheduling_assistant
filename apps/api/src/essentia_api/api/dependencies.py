@@ -1,9 +1,37 @@
 from collections.abc import Iterator
-from typing import cast
+from typing import Annotated, cast
+from uuid import UUID
 
-from fastapi import Request
+from fastapi import Depends, Header, Request
 from psycopg import Connection
 from psycopg_pool import ConnectionPool
+
+
+def get_patient_identity(
+    x_patient_id: Annotated[
+        UUID,
+        Header(
+            alias="X-Patient-Id",
+            description=(
+                "Identifier of the patient on whose behalf the request "
+                "is made. Must match the patient that owns the target "
+                "resource."
+            ),
+            examples=["3cdf666b-186d-44e6-bce9-5e572e7038f9"],
+        ),
+    ],
+) -> UUID:
+    """
+    Resolve the patient identity asserted by the caller via the
+    ``X-Patient-Id`` header.
+    """
+    return x_patient_id
+
+
+PatientIdentity = Annotated[
+    UUID,
+    Depends(get_patient_identity),
+]
 
 
 def get_db_pool(

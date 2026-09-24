@@ -123,3 +123,36 @@ pgvector pode ser adicionado posteriormente para FAQ ou conhecimento textual sem
 **Motivo:** preservar o boundary determinístico (API + PostgreSQL) e evitar duplicar regras de disponibilidade/preço no browser.
 
 **Detalhes e trade-offs do MVP** (request/response síncrono, UUID como `sessionId`, re-fetch como reconciliação): [`web-application.md`](./web-application.md) — WEB-DD-01…10.
+
+## DD-18 — Identidade de paciente via header `X-Patient-Id` (sem autenticação)
+
+**Decisão:** rotas patient-scoped (`GET/POST /v1/appointments*`, `GET /v1/patients/{id}`, `GET /v1/patients/{id}/appointments`) exigem o header `X-Patient-Id`; o servidor compara o header com o dono do recurso (path, `patient_id` do body ou `patient_id` do appointment carregado). Mismatch retorna `403`. `GET /v1/patients`, catálogo, availability e health permanecem sem o header.
+
+**Motivo:** impedir que um paciente leia ou cancele dados de outro sem implementar autenticação completa (fora de escopo no MVP). A comparação no app layer é uma decisão prática de demo; o DB ainda garante integridade referencial, mas não enforce ownership (fase futura opcional: predicado `patient_id` nas queries sqlc).
+
+**Trade-off:** o header é apenas uma asserção de identidade (qualquer cliente pode enviá-lo) — não é prova criptográfica. Com autenticação real no futuro, o mesmo `Depends` passaria a ler o subject do token. Inclui `caller_patient_id` no request hash de cancelamento para evitar replay cross-paciente da mesma `Idempotency-Key`.
+
+## DD-19 — Erros HTTP em RFC 7807 (`application/problem+json`) e logs estruturados com correlation ID
+
+**Decisão:** erros de domínio e falhas não tratadas são respondidos no formato RFC 7807:
+
+```json
+{
+  "type": "/problems/slot-unavailable",
+  "title": "Conflict",
+  "status": 409,
+  "detail": "Appointment slot is already booked.",
+  "instance": "/v1/appointments"
+}
+```
+
+A hierarchy de exceções vive em `core/errors.py` (`AppError` → `NotFoundError`/`ConflictError`/`ForbiddenError`/`InternalError` + exceções de domínio com `type` próprio). Handlers globais em `register_exception_handlers` serializam `AppError` e qualquer `Exception` não tratada (500 genérico, sem vazar stacktrace).
+
+Logs usam **structlog** em stdout: JSON em produção (`API_LOG_JSON=true`), console legível em dev/test. Middleware `CorrelationIdMiddleware` aceita/gera `X-Correlation-ID`, bind em contextvars (structlog) e ecoa o header na resposta.
+
+**Exceções deliberadamente fora do envelope problem+json:**
+
+- `422` de validação FastAPI/Pydantic — mantém o shape nativo `{"detail": [...]}` (compatibilidade e contratos já congelados);
+- `503` do `GET /health/n8n` — mantém `{"detail": {"status": "error"}}` (health check de infraestrutura).
+
+**Motivo:** um envelope único padroniza clientes (n8n, SPA, testes), remove `try/except` de tradução nas rotas, e o correlation ID amarra request → log → fluxo n8n sem depender de stacktrace em resposta.

@@ -114,7 +114,7 @@ VALUES (
             DATE '2027-04-12' + TIME '15:00'
         ) AT TIME ZONE 'America/Sao_Paulo',
         'blocked',
-        'Administrative block'
+        'Bloqueio administrativo'
     ),
     (
         '63d4a85a-bf72-414a-a849-e11aedf0be59',
@@ -205,7 +205,7 @@ VALUES (
             DATE '2026-09-19' + TIME '10:45'
         ) AT TIME ZONE 'America/Sao_Paulo',
         'closed',
-        'Historical completed slot'
+        'Horário histórico concluído'
     ),
     (
         'd59462db-a8f2-425e-9cdc-52c055f08c90',
@@ -218,7 +218,7 @@ VALUES (
             DATE '2026-09-18' + TIME '15:30'
         ) AT TIME ZONE 'America/Sao_Paulo',
         'closed',
-        'Historical no-show slot'
+        'Horário histórico de não comparecimento'
     );
 
 COMMIT;

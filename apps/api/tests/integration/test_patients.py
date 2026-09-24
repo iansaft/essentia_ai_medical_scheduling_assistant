@@ -12,9 +12,13 @@ from tests.support.constants import (
     PATIENT_LUCAS_INACTIVE,
     PATIENT_MARIA,
 )
-
+from tests.support.problem import assert_problem
 
 pytestmark = pytest.mark.integration
+
+
+def _identity_headers(patient_id) -> dict[str, str]:
+    return {"X-Patient-Id": str(patient_id)}
 
 
 def test_list_patients_returns_all_seed_patients(client: TestClient) -> None:
@@ -39,7 +43,10 @@ def test_list_patients_returns_all_seed_patients(client: TestClient) -> None:
 
 
 def test_get_existing_patient(client: TestClient) -> None:
-    response = client.get(f"/v1/patients/{PATIENT_MARIA}")
+    response = client.get(
+        f"/v1/patients/{PATIENT_MARIA}",
+        headers=_identity_headers(PATIENT_MARIA),
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -48,15 +55,35 @@ def test_get_existing_patient(client: TestClient) -> None:
     assert body["is_active"] is True
 
 
-def test_get_nonexistent_patient_returns_404(client: TestClient) -> None:
-    response = client.get(f"/v1/patients/{NON_EXISTENT_UUID}")
+def test_get_patient_as_another_patient_returns_403(client: TestClient) -> None:
+    response = client.get(
+        f"/v1/patients/{PATIENT_MARIA}",
+        headers=_identity_headers(PATIENT_CARLOS),
+    )
 
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Patient not found."
+    assert_problem(response, 403, detail="Patient access denied.")
+
+
+def test_get_patient_requires_identity_header(client: TestClient) -> None:
+    response = client.get(f"/v1/patients/{PATIENT_MARIA}")
+
+    assert response.status_code == 422
+
+
+def test_get_nonexistent_patient_returns_404(client: TestClient) -> None:
+    response = client.get(
+        f"/v1/patients/{NON_EXISTENT_UUID}",
+        headers=_identity_headers(NON_EXISTENT_UUID),
+    )
+
+    assert_problem(response, 404, detail="Patient not found.")
 
 
 def test_get_patient_with_invalid_uuid_returns_422(client: TestClient) -> None:
-    response = client.get("/v1/patients/not-a-uuid")
+    response = client.get(
+        "/v1/patients/not-a-uuid",
+        headers=_identity_headers(PATIENT_MARIA),
+    )
 
     assert response.status_code == 422
 
@@ -64,7 +91,10 @@ def test_get_patient_with_invalid_uuid_returns_422(client: TestClient) -> None:
 def test_list_patient_appointments_includes_all_statuses(
     client: TestClient,
 ) -> None:
-    response = client.get(f"/v1/patients/{PATIENT_CARLOS}/appointments")
+    response = client.get(
+        f"/v1/patients/{PATIENT_CARLOS}/appointments",
+        headers=_identity_headers(PATIENT_CARLOS),
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -77,10 +107,32 @@ def test_list_patient_appointments_includes_all_statuses(
     assert statuses_by_id[str(APPOINTMENT_NO_SHOW)] == "no_show"
 
 
-def test_list_patient_appointments_returns_scheduled_appointment(
+def test_list_patient_appointments_as_another_patient_returns_403(
+    client: TestClient,
+) -> None:
+    response = client.get(
+        f"/v1/patients/{PATIENT_MARIA}/appointments",
+        headers=_identity_headers(PATIENT_CARLOS),
+    )
+
+    assert_problem(response, 403, detail="Patient access denied.")
+
+
+def test_list_patient_appointments_requires_identity_header(
     client: TestClient,
 ) -> None:
     response = client.get(f"/v1/patients/{PATIENT_MARIA}/appointments")
+
+    assert response.status_code == 422
+
+
+def test_list_patient_appointments_returns_scheduled_appointment(
+    client: TestClient,
+) -> None:
+    response = client.get(
+        f"/v1/patients/{PATIENT_MARIA}/appointments",
+        headers=_identity_headers(PATIENT_MARIA),
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -97,7 +149,10 @@ def test_list_patient_appointments_returns_scheduled_appointment(
 def test_list_patient_appointments_preserves_price_snapshot(
     client: TestClient,
 ) -> None:
-    response = client.get(f"/v1/patients/{PATIENT_ANA}/appointments")
+    response = client.get(
+        f"/v1/patients/{PATIENT_ANA}/appointments",
+        headers=_identity_headers(PATIENT_ANA),
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -115,7 +170,10 @@ def test_list_patient_appointments_preserves_price_snapshot(
 def test_list_patient_appointments_orders_by_starts_at_desc(
     client: TestClient,
 ) -> None:
-    response = client.get(f"/v1/patients/{PATIENT_CARLOS}/appointments")
+    response = client.get(
+        f"/v1/patients/{PATIENT_CARLOS}/appointments",
+        headers=_identity_headers(PATIENT_CARLOS),
+    )
 
     assert response.status_code == 200
     starts_at_values = [
@@ -134,6 +192,7 @@ def test_list_patient_appointments_returns_empty_list_without_appointments(
 ) -> None:
     response = client.get(
         f"/v1/patients/{PATIENT_LUCAS_INACTIVE}/appointments",
+        headers=_identity_headers(PATIENT_LUCAS_INACTIVE),
     )
 
     assert response.status_code == 200
@@ -145,15 +204,18 @@ def test_list_patient_appointments_nonexistent_patient_returns_404(
 ) -> None:
     response = client.get(
         f"/v1/patients/{NON_EXISTENT_UUID}/appointments",
+        headers=_identity_headers(NON_EXISTENT_UUID),
     )
 
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Patient not found."
+    assert_problem(response, 404, detail="Patient not found.")
 
 
 def test_list_patient_appointments_invalid_uuid_returns_422(
     client: TestClient,
 ) -> None:
-    response = client.get("/v1/patients/not-a-uuid/appointments")
+    response = client.get(
+        "/v1/patients/not-a-uuid/appointments",
+        headers=_identity_headers(PATIENT_MARIA),
+    )
 
     assert response.status_code == 422

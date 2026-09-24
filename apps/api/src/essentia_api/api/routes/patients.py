@@ -1,15 +1,18 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Path, status
+from fastapi import APIRouter, Depends, Path, status
 from psycopg import Connection
 
-from essentia_api.api.dependencies import get_db_connection
+from essentia_api.api.dependencies import PatientIdentity, get_db_connection
+from essentia_api.core.errors import (
+    ForbiddenError,
+    PatientNotFoundError,
+)
 from essentia_api.db.generated import appointments as appointment_queries
 from essentia_api.db.generated import patients as patient_queries
 from essentia_api.schemas.appointments import AppointmentResponse
 from essentia_api.schemas.patients import PatientResponse
-
 
 router = APIRouter(
     prefix="/patients",
@@ -20,6 +23,14 @@ DatabaseConnection = Annotated[
     Connection,
     Depends(get_db_connection),
 ]
+
+
+def _ensure_patient_access(
+    path_patient_id: UUID,
+    caller_patient_id: UUID,
+) -> None:
+    if path_patient_id != caller_patient_id:
+        raise ForbiddenError("Patient access denied.")
 
 
 @router.get(
@@ -55,18 +66,18 @@ def get_patient(
             ],
         ),
     ],
+    caller_patient_id: PatientIdentity,
     connection: DatabaseConnection,
 ) -> PatientResponse:
+    _ensure_patient_access(patient_id, caller_patient_id)
+
     patient = patient_queries.get_patient_by_id(
         connection,
         id_=patient_id,
     )
 
     if patient is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Patient not found.",
-        )
+        raise PatientNotFoundError("Patient not found.")
 
     return PatientResponse.model_validate(patient)
 
@@ -87,18 +98,18 @@ def list_patient_appointments(
             ],
         ),
     ],
+    caller_patient_id: PatientIdentity,
     connection: DatabaseConnection,
 ) -> list[AppointmentResponse]:
+    _ensure_patient_access(patient_id, caller_patient_id)
+
     patient = patient_queries.get_patient_by_id(
         connection,
         id_=patient_id,
     )
 
     if patient is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Patient not found.",
-        )
+        raise PatientNotFoundError("Patient not found.")
 
     appointments = appointment_queries.list_appointments_by_patient_id(
         connection,

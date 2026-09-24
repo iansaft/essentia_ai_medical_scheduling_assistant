@@ -14,10 +14,11 @@ __all__: collections.abc.Sequence[str] = (
 )
 
 import dataclasses
+import typing
+
 import psycopg
 import psycopg.rows
 import psycopg.types.string
-import typing
 
 if typing.TYPE_CHECKING:
     import collections.abc

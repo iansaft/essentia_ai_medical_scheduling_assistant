@@ -11,7 +11,6 @@ from tests.support.constants import (
     SLOT_HELENA_CARDIO_AVAILABLE,
 )
 
-
 pytestmark = pytest.mark.integration
 
 

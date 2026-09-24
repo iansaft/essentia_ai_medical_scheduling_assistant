@@ -3,6 +3,7 @@ from uuid import UUID
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
+
 class ServiceResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

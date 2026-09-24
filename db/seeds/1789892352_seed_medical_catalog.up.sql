@@ -13,22 +13,22 @@ INSERT INTO
 VALUES (
         '694124aa-53a3-4021-9280-a404c0876c09',
         'cardiology',
-        'Cardiology',
-        'Medical specialty focused on cardiovascular health.',
+        'Cardiologia',
+        'Especialidade médica focada na saúde cardiovascular.',
         TRUE
     ),
     (
         'cdcfe095-45e6-4d24-91b1-9efcc3f78835',
         'dermatology',
-        'Dermatology',
-        'Medical specialty focused on skin, hair, and nail conditions.',
+        'Dermatologia',
+        'Especialidade médica focada em condições da pele, cabelos e unhas.',
         TRUE
     ),
     (
         'ef6ce6a2-102c-4447-8e38-6833a6ca463d',
         'general_practice',
-        'General Practice',
-        'General medical consultations and primary care.',
+        'Clínica Geral',
+        'Consultas médicas gerais e atenção primária.',
         TRUE
     );
 

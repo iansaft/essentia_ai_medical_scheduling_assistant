@@ -6,6 +6,20 @@ from uuid import UUID
 from psycopg import Connection
 from psycopg.types.json import Jsonb
 
+from essentia_api.core.errors import (
+    AppointmentNotCancellableError,
+    AppointmentNotFoundError,
+    DoctorInactiveError,
+    IdempotencyConflictError,
+    IdempotencyInProgressError,
+    IdempotencyStateError,
+    PatientAccessDeniedError,
+    PatientInactiveError,
+    PatientNotFoundError,
+    ServiceInactiveError,
+    SlotNotFoundError,
+    SlotUnavailableError,
+)
 from essentia_api.db.generated import appointments as appointment_queries
 from essentia_api.db.generated import idempotency as idempotency_queries
 from essentia_api.schemas.appointments import (
@@ -17,49 +31,25 @@ from essentia_api.schemas.appointments import (
 CREATE_APPOINTMENT_OPERATION = "create_appointment"
 CANCEL_APPOINTMENT_OPERATION = "cancel_appointment"
 
-
-class AppointmentNotFoundError(Exception):
-    pass
-
-
-class PatientNotFoundError(Exception):
-    pass
-
-
-class PatientInactiveError(Exception):
-    pass
-
-
-class SlotNotFoundError(Exception):
-    pass
-
-
-class SlotUnavailableError(Exception):
-    pass
-
-
-class DoctorInactiveError(Exception):
-    pass
-
-
-class ServiceInactiveError(Exception):
-    pass
-
-
-class AppointmentNotCancellableError(Exception):
-    pass
-
-
-class IdempotencyConflictError(Exception):
-    pass
-
-
-class IdempotencyInProgressError(Exception):
-    pass
-
-
-class IdempotencyStateError(Exception):
-    pass
+__all__ = [
+    "CANCEL_APPOINTMENT_OPERATION",
+    "CREATE_APPOINTMENT_OPERATION",
+    "AppointmentNotCancellableError",
+    "AppointmentNotFoundError",
+    "DoctorInactiveError",
+    "IdempotencyConflictError",
+    "IdempotencyInProgressError",
+    "IdempotencyStateError",
+    "PatientAccessDeniedError",
+    "PatientInactiveError",
+    "PatientNotFoundError",
+    "ServiceInactiveError",
+    "SlotNotFoundError",
+    "SlotUnavailableError",
+    "cancel_appointment",
+    "create_appointment",
+    "get_appointment",
+]
 
 
 def _request_hash(*, operation: str, payload: dict[str, Any]) -> str:
@@ -163,6 +153,7 @@ def get_appointment(
     connection: Connection,
     *,
     appointment_id: UUID,
+    caller_patient_id: UUID,
 ) -> AppointmentResponse:
     appointment = appointment_queries.get_appointment_by_id(
         connection,
@@ -172,6 +163,9 @@ def get_appointment(
     if appointment is None:
         raise AppointmentNotFoundError("Appointment not found.")
 
+    if appointment.patient_id != caller_patient_id:
+        raise PatientAccessDeniedError("Patient access denied.")
+
     return _validate_replayed_response(appointment)
 
 
@@ -180,7 +174,11 @@ def create_appointment(
     *,
     command: CreateAppointmentRequest,
     idempotency_key: str,
+    caller_patient_id: UUID,
 ) -> AppointmentResponse:
+    if command.patient_id != caller_patient_id:
+        raise PatientAccessDeniedError("Patient access denied.")
+
     request_hash = _request_hash(
         operation=CREATE_APPOINTMENT_OPERATION,
         payload={
@@ -272,16 +270,27 @@ def cancel_appointment(
     appointment_id: UUID,
     command: CancelAppointmentRequest,
     idempotency_key: str,
+    caller_patient_id: UUID,
 ) -> AppointmentResponse:
     request_hash = _request_hash(
         operation=CANCEL_APPOINTMENT_OPERATION,
         payload={
             "appointment_id": str(appointment_id),
             "cancellation_reason": command.cancellation_reason,
+            "caller_patient_id": str(caller_patient_id),
         },
     )
 
     with connection.transaction():
+        appointment_owner = appointment_queries.get_appointment_by_id(
+            connection,
+            appointment_id=appointment_id,
+        )
+        if appointment_owner is None:
+            raise AppointmentNotFoundError("Appointment not found.")
+        if appointment_owner.patient_id != caller_patient_id:
+            raise PatientAccessDeniedError("Patient access denied.")
+
         replayed_response = _load_replayed_response(
             connection,
             operation=CANCEL_APPOINTMENT_OPERATION,

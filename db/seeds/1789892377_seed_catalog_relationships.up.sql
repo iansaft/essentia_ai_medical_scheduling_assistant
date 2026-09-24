@@ -48,7 +48,7 @@ VALUES (
         'e2fb5edd-efbd-4d60-9de3-d6650e31562f',
         'c7a8727c-c8bf-4964-8301-9ccfd3ab09ba',
         6,
-        'Interest-free installments supported up to six payments.'
+        'Parcelamento sem juros em até 6x.'
     ),
     (
         'e2fb5edd-efbd-4d60-9de3-d6650e31562f',
@@ -76,7 +76,7 @@ VALUES (
         'b9d24a3f-45eb-48bf-9d48-1f075e4c40a3',
         'c7a8727c-c8bf-4964-8301-9ccfd3ab09ba',
         4,
-        'Interest-free installments supported up to four payments.'
+        'Parcelamento sem juros em até 4x.'
     ),
     (
         'b9d24a3f-45eb-48bf-9d48-1f075e4c40a3',
@@ -104,7 +104,7 @@ VALUES (
         '6640a42f-830c-4187-aacf-ed576b464b74',
         'c7a8727c-c8bf-4964-8301-9ccfd3ab09ba',
         3,
-        'Interest-free installments supported up to three payments.'
+        'Parcelamento sem juros em até 3x.'
     ),
     (
         '6640a42f-830c-4187-aacf-ed576b464b74',
@@ -138,7 +138,7 @@ VALUES (
         '93391495-8729-48f7-86e7-b8052b53b868',
         'c7a8727c-c8bf-4964-8301-9ccfd3ab09ba',
         3,
-        'Interest-free installments supported up to three payments.'
+        'Parcelamento sem juros em até 3x.'
     ),
     (
         '93391495-8729-48f7-86e7-b8052b53b868',

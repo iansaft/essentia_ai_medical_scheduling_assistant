@@ -9,7 +9,7 @@ from tests.support.constants import (
     SERVICE_FOLLOW_UP,
     SERVICE_GENERAL,
 )
-
+from tests.support.problem import assert_problem
 
 pytestmark = pytest.mark.integration
 
@@ -57,8 +57,7 @@ def test_get_existing_service(client: TestClient) -> None:
 def test_get_nonexistent_service_returns_404(client: TestClient) -> None:
     response = client.get(f"/v1/services/{NON_EXISTENT_UUID}")
 
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Service not found."
+    assert_problem(response, 404, detail="Service not found.")
 
 
 def test_get_inactive_service_returns_404(
@@ -96,5 +95,4 @@ def test_list_payment_methods_for_nonexistent_service_returns_404(
         f"/v1/services/{NON_EXISTENT_UUID}/payment-methods"
     )
 
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Service not found."
+    assert_problem(response, 404, detail="Service not found.")

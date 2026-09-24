@@ -70,6 +70,20 @@ class Settings(BaseSettings):
         ),
     )
 
+    log_level: str = Field(
+        default="INFO",
+        validation_alias=AliasChoices(
+            "API_LOG_LEVEL",
+        ),
+    )
+
+    log_json: bool = Field(
+        default=True,
+        validation_alias=AliasChoices(
+            "API_LOG_JSON",
+        ),
+    )
+
     cors_origins: Annotated[
         list[str],
         NoDecode,

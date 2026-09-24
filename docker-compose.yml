@@ -52,6 +52,40 @@ services:
     networks:
       - essentia_ai_assistent_net
 
+  redis:
+    image: ${REDIS_IMAGE:-redis:8.10.2-alpine3.23}
+    container_name: ${REDIS_CNAME:-essentia_ai_assistent_redis}
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_MAXMEMORY: ${REDIS_MAXMEMORY:-256mb}
+    command:
+      - /bin/sh
+      - -c
+      - >
+        exec redis-server
+        --requirepass "$$REDIS_PASSWORD"
+        --appendonly yes
+        --appendfsync everysec
+        --maxmemory "$${REDIS_MAXMEMORY:-256mb}"
+        --maxmemory-policy noeviction
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - ${REDIS_DATA_FOLDER:-./.docker/redis}/redis_data:/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping | grep -q PONG",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - essentia_ai_assistent_net
+
   api:
     build:
       context: ./apps/api
@@ -71,6 +105,12 @@ services:
       DB_POOL_MIN_SIZE: ${DB_POOL_MIN_SIZE:-1}
       DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-10}
       DB_POOL_TIMEOUT: ${DB_POOL_TIMEOUT:-5}
+      API_REDIS_HOST: ${API_REDIS_HOST:-redis}
+      API_REDIS_PORT: ${API_REDIS_PORT:-6379}
+      API_REDIS_PASSWORD: ${API_REDIS_PASSWORD}
+      API_REDIS_DB: ${API_REDIS_DB:-0}
+      API_REDIS_SOCKET_TIMEOUT: ${API_REDIS_SOCKET_TIMEOUT:-2}
+      API_REDIS_CONNECT_TIMEOUT: ${API_REDIS_CONNECT_TIMEOUT:-2}
       BUSINESS_TIMEZONE: ${BUSINESS_TIMEZONE:-America/Sao_Paulo}
       API_CORS_ORIGINS: ${API_CORS_ORIGINS:-http://localhost:5173,http://localhost:4173,http://localhost:8080}
       API_N8N_BASE_URL: http://n8n:5678

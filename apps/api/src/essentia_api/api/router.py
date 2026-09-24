@@ -7,7 +7,6 @@ from essentia_api.api.routes import (
     services,
 )
 
-
 api_router = APIRouter(
     prefix="/v1",
 )

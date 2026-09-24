@@ -6,3 +6,4 @@
 # Docker
 .docker/postgres/postgres_data
 .docker/n8n/n8n_data
+.docker/redis/redis_data

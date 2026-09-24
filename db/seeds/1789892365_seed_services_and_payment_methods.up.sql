@@ -16,8 +16,8 @@ INSERT INTO
 VALUES (
         'e2fb5edd-efbd-4d60-9de3-d6650e31562f',
         'cardiology_initial_consultation',
-        'Cardiology Initial Consultation',
-        'Initial consultation with a cardiologist.',
+        'Consulta Inicial de Cardiologia',
+        'Consulta inicial com cardiologista.',
         320.00,
         'BRL',
         45,
@@ -26,8 +26,8 @@ VALUES (
     (
         'b9d24a3f-45eb-48bf-9d48-1f075e4c40a3',
         'dermatology_consultation',
-        'Dermatology Consultation',
-        'General consultation with a dermatologist.',
+        'Consulta de Dermatologia',
+        'Consulta geral com dermatologista.',
         250.00,
         'BRL',
         30,
@@ -36,8 +36,8 @@ VALUES (
     (
         '6640a42f-830c-4187-aacf-ed576b464b74',
         'general_medical_consultation',
-        'General Medical Consultation',
-        'General medical evaluation with a primary care physician.',
+        'Consulta Médica Geral',
+        'Avaliação médica geral com médico de atenção primária.',
         180.00,
         'BRL',
         30,
@@ -46,8 +46,8 @@ VALUES (
     (
         '93391495-8729-48f7-86e7-b8052b53b868',
         'follow_up_consultation',
-        'Follow-up Consultation',
-        'Follow-up appointment after a previous medical consultation.',
+        'Consulta de Retorno',
+        'Consulta de retorno após uma consulta médica anterior.',
         150.00,
         'BRL',
         30,
@@ -68,28 +68,28 @@ VALUES (
         'a570a071-95f3-41ee-a8dc-8447ddf026b5',
         'pix',
         'PIX',
-        'Instant payment using the Brazilian PIX payment system.',
+        'Pagamento instantâneo pelo sistema de pagamentos brasileiro PIX.',
         TRUE
     ),
     (
         'c7a8727c-c8bf-4964-8301-9ccfd3ab09ba',
         'credit_card',
-        'Credit Card',
-        'Payment using a credit card.',
+        'Cartão de Crédito',
+        'Pagamento com cartão de crédito.',
         TRUE
     ),
     (
         'ef967cb7-6a4d-4011-854b-a9408cc8c1d0',
         'debit_card',
-        'Debit Card',
-        'Payment using a debit card.',
+        'Cartão de Débito',
+        'Pagamento com cartão de débito.',
         TRUE
     ),
     (
         'e4b8c4d1-80cf-47f2-a271-627623e84be8',
         'cash',
-        'Cash',
-        'Cash payment at the clinic.',
+        'Dinheiro',
+        'Pagamento em dinheiro na clínica.',
         TRUE
     );
 

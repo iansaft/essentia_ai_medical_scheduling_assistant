@@ -178,18 +178,26 @@ Sonda `GET {API_N8N_BASE_URL}/healthz/readiness` com timeout de 2s:
 
 Dentro do Docker Compose a API usa `API_N8N_BASE_URL=http://n8n:5678`; em desenvolvimento local, a variável do `.env` (`http://localhost:5678`) aponta para o host.
 
-## 6. Observabilidade planejada
+## 6. Observabilidade e logs
 
-Logs devem ser estruturados e conter, quando disponível:
+Logs são emitidos via **structlog** em stdout:
 
-- timestamp;
-- level;
-- correlation ID;
-- operation/request;
-- HTTP method/path/status;
-- duração;
-- tipo de erro;
-- identificadores técnicos relevantes sem dados sensíveis desnecessários.
+- `API_LOG_JSON=true` (default / produção) → JSON lines (timestamp, level, event, campos de contexto);
+- `API_LOG_JSON=false` (dev/test) → console legível;
+- `API_LOG_LEVEL` controla o nível mínimo (`INFO` default).
+
+Todo request passa pelo middleware `CorrelationIdMiddleware`:
+
+- lê `X-Correlation-ID` de entrada ou gera um UUID;
+- bind em contextvars do structlog (correlaciona todos os logs do request);
+- ecoa o header na resposta.
+
+Campos esperados em logs de request/erro:
+
+- timestamp, level, event;
+- `correlation_id`, `method`, `path`;
+- para erros de domínio: `status`, `error_type`, `detail`;
+- para falhas não tratadas: stacktrace via `logger.exception`.
 
 O n8n deve propagar um identificador como `X-Correlation-ID` para permitir rastrear:
 
@@ -203,11 +211,41 @@ Semântica utilizada:
 
 - `200 OK` — leitura bem-sucedida;
 - `201 Created` — appointment criado;
+- `403 Forbidden` — `X-Patient-Id` não corresponde ao dono do recurso patient-scoped;
 - `404 Not Found` — recurso não encontrado;
 - `409 Conflict` — conflito de estado/concorrência, como double booking ou reutilização inválida de chave de idempotência;
-- `422 Unprocessable Entity` — validação de parâmetros/body pelo FastAPI/Pydantic;
+- `422 Unprocessable Entity` — validação de parâmetros/body/headers pelo FastAPI/Pydantic (inclui `X-Patient-Id` e `Idempotency-Key` ausentes);
 - `503 Service Unavailable` — dependência externa indisponível (readiness do n8n em `GET /health/n8n`);
 - `500 Internal Server Error` — falha não tratada, que deve ser observável em logs e não usada para regras esperadas de domínio.
+
+### Formato de resposta de erro (RFC 7807)
+
+**403 / 404 / 409 / 500 de domínio e não tratados** usam `Content-Type: application/problem+json` (DD-19):
+
+```json
+{
+  "type": "/problems/slot-unavailable",
+  "title": "Conflict",
+  "status": 409,
+  "detail": "Appointment slot is already booked.",
+  "instance": "/v1/appointments"
+}
+```
+
+- `type` — URI relativa estável do problema (ex.: `/problems/patient-access-denied`);
+- `title` — resumo HTTP do status (`Conflict`, `Not Found`, …);
+- `detail` — mensagem legível para o cliente final (inglês);
+- `instance` — path da requisição;
+- `500` não tratado usa `/problems/internal-error` e `detail` genérico (`An unexpected error occurred.`) — stacktraces ficam apenas nos logs.
+
+**Exceções com shape preservado:**
+
+- `422` → shape FastAPI/Pydantic nativo `{"detail": [...]}` (não é problem+json);
+- `503` de `GET /health/n8n` → `{"detail":{"status":"error"}}`.
+
+### Header `X-Correlation-ID`
+
+Presente em **todas** as respostas (sucesso e erro): ecoa o valor enviado pelo cliente ou o UUID gerado no request.
 
 Respostas com sucesso em origens de browser permitidas incluem headers CORS conforme `API_CORS_ORIGINS` (origens fora da allowlist não recebem `Access-Control-Allow-Origin`).
 
@@ -244,6 +282,8 @@ Variáveis novas relevantes no `.env`:
 
 - `API_CORS_ORIGINS` — allowlist de origens do browser (separadas por vírgula);
 - `API_N8N_BASE_URL` — base do probe de readiness (host: `http://localhost:5678`; Compose: `http://n8n:5678`);
+- `API_LOG_LEVEL` — nível mínimo de log (default `INFO`);
+- `API_LOG_JSON` — `true` (default) para JSON lines em stdout; `false` para console legível;
 - `N8N_ENCRYPTION_KEY` — obrigatória para o serviço n8n;
 - `VITE_API_BASE_URL`, `VITE_N8N_CHAT_WEBHOOK_URL` — embutidas no bundle web (não contêm segredos).
 
@@ -284,3 +324,4 @@ Nos testes, a configuração é construída diretamente a partir das credenciais
 - manter exemplos OpenAPI alinhados às seeds;
 - executar a suíte completa com `pytest` antes de entrega;
 - validar a camada web com `make web-check` (typecheck + Vitest) antes de entrega;
+- erros de domínio sempre via exceções de `core/errors.py` (nunca `HTTPException` ad-hoc fora de health 503).

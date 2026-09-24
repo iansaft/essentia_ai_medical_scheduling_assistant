@@ -16,7 +16,6 @@ from tests.support.constants import (
     SLOT_RAFAEL_DERMATOLOGY_BLOCKED,
 )
 
-
 pytestmark = pytest.mark.integration
 
 

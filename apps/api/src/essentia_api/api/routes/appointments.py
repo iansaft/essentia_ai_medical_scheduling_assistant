@@ -5,13 +5,12 @@ from fastapi import (
     APIRouter,
     Depends,
     Header,
-    HTTPException,
     Path,
     status,
 )
 from psycopg import Connection
 
-from essentia_api.api.dependencies import get_db_connection
+from essentia_api.api.dependencies import PatientIdentity, get_db_connection
 from essentia_api.schemas.appointments import (
     AppointmentResponse,
     CancelAppointmentRequest,
@@ -44,49 +43,6 @@ IdempotencyKey = Annotated[
 ]
 
 
-def _translate_domain_error(error: Exception) -> HTTPException:
-    if isinstance(
-        error,
-        (
-            appointment_service.AppointmentNotFoundError,
-            appointment_service.PatientNotFoundError,
-            appointment_service.SlotNotFoundError,
-        ),
-    ):
-        return HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(error),
-        )
-
-    if isinstance(
-        error,
-        (
-            appointment_service.PatientInactiveError,
-            appointment_service.SlotUnavailableError,
-            appointment_service.DoctorInactiveError,
-            appointment_service.ServiceInactiveError,
-            appointment_service.AppointmentNotCancellableError,
-            appointment_service.IdempotencyConflictError,
-            appointment_service.IdempotencyInProgressError,
-        ),
-    ):
-        return HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(error),
-        )
-
-    if isinstance(error, appointment_service.IdempotencyStateError):
-        return HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Invalid idempotency state.",
-        )
-
-    return HTTPException(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail="Unexpected appointment operation error.",
-    )
-
-
 @router.get(
     "/{appointment_id}",
     response_model=AppointmentResponse,
@@ -103,15 +59,14 @@ def get_appointment(
             ],
         ),
     ],
+    caller_patient_id: PatientIdentity,
     connection: DatabaseConnection,
 ) -> AppointmentResponse:
-    try:
-        return appointment_service.get_appointment(
-            connection,
-            appointment_id=appointment_id,
-        )
-    except appointment_service.AppointmentNotFoundError as error:
-        raise _translate_domain_error(error) from error
+    return appointment_service.get_appointment(
+        connection,
+        appointment_id=appointment_id,
+        caller_patient_id=caller_patient_id,
+    )
 
 
 @router.post(
@@ -128,26 +83,15 @@ def get_appointment(
 def create_appointment(
     command: CreateAppointmentRequest,
     idempotency_key: IdempotencyKey,
+    caller_patient_id: PatientIdentity,
     connection: DatabaseConnection,
 ) -> AppointmentResponse:
-    try:
-        return appointment_service.create_appointment(
-            connection,
-            command=command,
-            idempotency_key=idempotency_key,
-        )
-    except (
-        appointment_service.PatientNotFoundError,
-        appointment_service.PatientInactiveError,
-        appointment_service.SlotNotFoundError,
-        appointment_service.SlotUnavailableError,
-        appointment_service.DoctorInactiveError,
-        appointment_service.ServiceInactiveError,
-        appointment_service.IdempotencyConflictError,
-        appointment_service.IdempotencyInProgressError,
-        appointment_service.IdempotencyStateError,
-    ) as error:
-        raise _translate_domain_error(error) from error
+    return appointment_service.create_appointment(
+        connection,
+        command=command,
+        idempotency_key=idempotency_key,
+        caller_patient_id=caller_patient_id,
+    )
 
 
 @router.post(
@@ -168,20 +112,13 @@ def cancel_appointment(
     ],
     command: CancelAppointmentRequest,
     idempotency_key: IdempotencyKey,
+    caller_patient_id: PatientIdentity,
     connection: DatabaseConnection,
 ) -> AppointmentResponse:
-    try:
-        return appointment_service.cancel_appointment(
-            connection,
-            appointment_id=appointment_id,
-            command=command,
-            idempotency_key=idempotency_key,
-        )
-    except (
-        appointment_service.AppointmentNotFoundError,
-        appointment_service.AppointmentNotCancellableError,
-        appointment_service.IdempotencyConflictError,
-        appointment_service.IdempotencyInProgressError,
-        appointment_service.IdempotencyStateError,
-    ) as error:
-        raise _translate_domain_error(error) from error
+    return appointment_service.cancel_appointment(
+        connection,
+        appointment_id=appointment_id,
+        command=command,
+        idempotency_key=idempotency_key,
+        caller_patient_id=caller_patient_id,
+    )

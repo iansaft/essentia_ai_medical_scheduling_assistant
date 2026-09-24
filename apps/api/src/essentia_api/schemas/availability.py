@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
+
 class AvailableSlotResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -16,9 +16,10 @@ import typing
 
 if typing.TYPE_CHECKING:
     import collections.abc
+    import uuid
+
     import psycopg
     import psycopg.rows
-    import uuid
 
     type QueryResultsArgsType = int | float | str | memoryview | uuid.UUID | collections.abc.Sequence[QueryResultsArgsType] | None
 

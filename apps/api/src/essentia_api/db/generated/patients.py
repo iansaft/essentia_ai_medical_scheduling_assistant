@@ -16,16 +16,16 @@ import typing
 if typing.TYPE_CHECKING:
     import collections.abc
     import datetime
+    import uuid
+
     import psycopg
     import psycopg.rows
-    import uuid
 
     type QueryResultsArgsType = int | float | str | memoryview | uuid.UUID | datetime.date | datetime.time | datetime.datetime | datetime.timedelta | collections.abc.Sequence[QueryResultsArgsType] | None
 
     type ConnectionLike = psycopg.Connection[psycopg.rows.TupleRow]
 
 from essentia_api.db.generated import models
-
 
 GET_PATIENT_BY_ID: typing.Final[typing.LiteralString] = """-- name: GetPatientById :one
 SELECT

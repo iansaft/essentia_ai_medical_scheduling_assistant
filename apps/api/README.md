@@ -66,7 +66,7 @@ make seed-down && make seed-up
 
 ## Recursos da API REST
 
-Todas as rotas de domínio estão sob o prefixo `/v1`. Não há autenticação nesta etapa.
+Todas as rotas de domínio estão sob o prefixo `/v1`. **Não há autenticação nesta etapa**, mas rotas patient-scoped exigem o header `X-Patient-Id` (UUID do paciente), que deve coincidir com o dono do recurso acessado — mismatch retorna `403`. `GET /v1/patients`, services, availability e health permanecem sem o header.
 
 Habilitação de CORS: o middleware `CORSMiddleware` libera apenas as origens em `API_CORS_ORIGINS` (separadas por vírgula; default `http://localhost:5173,http://localhost:4173,http://localhost:8080` — Vite dev, Vite preview e container web).
 
@@ -106,15 +106,16 @@ Dentro do Compose a API usa `API_N8N_BASE_URL=http://n8n:5678`; em desenvolvimen
 
 ### `GET /v1/patients`
 
-Sem parâmetros. `200` com a lista de **todos** os pacientes, ativos e inativos (`PatientResponse`: `id`, `full_name`, `email`, `phone`, `is_active`, timestamps), em ordem determinística (`created_at`, `id`). Pacientes inativos são incluídos com `is_active = false` (WEB-RF-01).
+Sem parâmetros e **sem** `X-Patient-Id` (público — necessário para o seletor de pacientes da UI). `200` com a lista de **todos** os pacientes, ativos e inativos (`PatientResponse`: `id`, `full_name`, `email`, `phone`, `is_active`, timestamps), em ordem determinística (`created_at`, `id`). Pacientes inativos são incluídos com `is_active = false` (WEB-RF-01).
 
 ### `GET /v1/patients/{patient_id}`
 
 | | |
 |---|---|
 | Path | `patient_id` (UUID, obrigatório) |
+| Header | **`X-Patient-Id`** (UUID, obrigatório) — deve ser igual ao `patient_id` da path |
 | Sucesso | `200` com `PatientResponse` (`id`, `full_name`, `email`, `phone`, `is_active`, timestamps) |
-| Erro | `404` se o paciente não existir |
+| Erro | `403` se o header não corresponder ao path; `404` se o paciente não existir; `422` se o header/path for inválido ou ausente |
 
 Consulta dados cadastrais mesmo sem agenda futura associada (BR-03).
 
@@ -123,8 +124,9 @@ Consulta dados cadastrais mesmo sem agenda futura associada (BR-03).
 | | |
 |---|---|
 | Path | `patient_id` (UUID, obrigatório) |
+| Header | **`X-Patient-Id`** (UUID, obrigatório) — deve ser igual ao `patient_id` da path |
 | Sucesso | `200` com lista de `AppointmentResponse` ordenada por `starts_at DESC` |
-| Erro | `404` se o paciente não existir; `422` se o UUID for inválido |
+| Erro | `403` se o header não corresponder ao path; `404` se o paciente não existir; `422` se o UUID for inválido ou o header ausente |
 
 Retorna **todos** os agendamentos do paciente, em qualquer status (`scheduled`, `cancelled`, `completed`, `no_show`), preservando o snapshot de preço e os dados de cancelamento (WEB-RF-06). Paciente existente sem agendamentos retorna `200` com `[]`.
 
@@ -183,18 +185,21 @@ Observações:
 | | |
 |---|---|
 | Path | `appointment_id` (UUID, obrigatório) |
+| Header | **`X-Patient-Id`** (UUID, obrigatório) — deve ser o `patient_id` dono do agendamento |
 | Sucesso | `200` com `AppointmentResponse` (inclui `patient_*`, `doctor_*`, `service_*`, `starts_at`/`ends_at`, `status`, snapshot `price_amount`/`currency`, campos de cancelamento) |
-| Erro | `404` |
+| Erro | `403` se o header não for o dono; `404` se não existir; `422` se o header ausente/inválido |
 
-Example no OpenAPI: `8029d8d3-8fff-4dcc-a2ef-2ae0808bf95e` (agendamento `scheduled` das seeds).
+Example no OpenAPI: `8029d8d3-8fff-4dcc-a2ef-2ae0808bf95e` (agendamento `scheduled` das seeds, dono Maria `3cdf666b-…`).
 
 ### `POST /v1/appointments` — criar agendamento
 
 | | |
 |---|---|
 | Header | **`Idempotency-Key`** (string 1–255, obrigatório) |
+| Header | **`X-Patient-Id`** (UUID, obrigatório) — deve ser igual ao `patient_id` do body |
 | Body | `{"patient_id": "<uuid>", "slot_id": "<uuid>"}` |
 | Sucesso | `201` com `AppointmentResponse` |
+| Erro | `403` se `X-Patient-Id` ≠ `body.patient_id` |
 
 O cliente envia **apenas** os ids (BR-17): preço, moeda, médico e serviço são derivados no servidor a partir do slot/catálogo, e `price_amount`/`currency` gravam um **snapshot** imutável no appointment (BR-18/BR-26).
 
@@ -203,8 +208,9 @@ Validações (BR-16) → respostas:
 | Condição | HTTP |
 |---|---|
 | Paciente ou slot inexistente | `404` |
+| `X-Patient-Id` ≠ `body.patient_id` | `403` |
 | Paciente inativo; slot não `open`; slot no passado; médico/serviço inativo; slot já ocupado por `scheduled` (double booking); reuso de `Idempotency-Key` com payload diferente | `409` |
-| Body inválido ou `Idempotency-Key` ausente | `422` |
+| Body inválido ou header (`Idempotency-Key`/`X-Patient-Id`) ausente | `422` |
 
 Regras de idempotência (BR-29–BR-32):
 
@@ -220,6 +226,7 @@ Examples no OpenAPI (válidos para as seeds): `patient_id = 3cdf666b-186d-44e6-b
 |---|---|
 | Path | `appointment_id` (UUID, obrigatório) |
 | Header | **`Idempotency-Key`** (string 1–255, obrigatório) |
+| Header | **`X-Patient-Id`** (UUID, obrigatório) — deve ser o dono do agendamento |
 | Body | `{"cancellation_reason": "<3–500 chars>"}` |
 | Sucesso | `200` com `AppointmentResponse` (`status = "cancelled"`, `cancellation_reason`, `cancelled_at`) |
 
@@ -228,9 +235,10 @@ Cancelamento é **transição de estado**, nunca exclusão física (BR-21). Regr
 | Condição | HTTP |
 |---|---|
 | Appointment inexistente | `404` |
+| `X-Patient-Id` ≠ dono do appointment | `403` |
 | Status diferente de `scheduled` (já cancelado, `completed`, `no_show`) | `409` |
-| Motivo com menos de 3 caracteres / body ou key ausentes | `422` |
-| Mesma key reutilizada com motivo diferente | `409` |
+| Motivo com menos de 3 caracteres / body ou headers ausentes | `422` |
+| Mesma key reutilizada com motivo ou caller diferente | `409` |
 
 Example no OpenAPI: `8029d8d3-8fff-4dcc-a2ef-2ae0808bf95e` (único `scheduled` nas seeds).
 
@@ -244,11 +252,47 @@ Example no OpenAPI: `8029d8d3-8fff-4dcc-a2ef-2ae0808bf95e` (único `scheduled` n
 |---|---|
 | `200 OK` | Leitura (ou cancelamento) bem-sucedida |
 | `201 Created` | Appointment criado |
+| `403 Forbidden` | `X-Patient-Id` não corresponde ao dono do recurso (path, body ou `patient_id` do appointment) |
 | `404 Not Found` | Recurso não encontrado |
 | `409 Conflict` | Conflito de estado/concorrência: double booking, slot não cancelável, reuso inválido de `Idempotency-Key`, paciente/serviço/médico inativo, slot não `open`/passado |
-| `422 Unprocessable Entity` | Validação de path/query/body/header (Pydantic/FastAPI) |
+| `422 Unprocessable Entity` | Validação de path/query/body/header (Pydantic/FastAPI), incluindo `X-Patient-Id`/`Idempotency-Key` ausentes |
 | `503 Service Unavailable` | Dependência externa indisponível (`GET /health/n8n` quando o n8n não está pronto) |
 | `500 Internal Server Error` | Falha não tratada |
+
+### Formato das respostas de erro
+
+**403 / 404 / 409 / 500 de domínio** (e falhas não tratadas) usam `Content-Type: application/problem+json` (RFC 7807 — DD-19):
+
+```json
+{
+  "type": "/problems/slot-unavailable",
+  "title": "Conflict",
+  "status": 409,
+  "detail": "Appointment slot is already booked.",
+  "instance": "/v1/appointments"
+}
+```
+
+- `type` — URI estável do problema (ex.: `/problems/patient-access-denied`);
+- `detail` — mensagem em inglês para o cliente;
+- `instance` — path da requisição;
+- `500` não tratado → `/problems/internal-error` com `detail` genérico (stacktrace apenas nos logs).
+
+**Shapes preservados** (não usam problem+json):
+
+| Cenário | Shape |
+|---|---|
+| `422` de validação FastAPI/Pydantic | `{"detail": [ { "loc", "msg", "type", ... } ]}` |
+| `503` em `GET /health/n8n` | `{"detail":{"status":"error"}}` |
+
+### Header `X-Correlation-ID`
+
+Todas as respostas (sucesso e erro) ecoam `X-Correlation-ID`. Se o cliente (n8n, SPA) envia o header, o valor é preservado; caso contrário a API gera um UUID. O mesmo id é anexado a todos os logs do request via structlog (ver DD-19 e `docs/testing-and-operations.md`).
+
+### Logging
+
+- `API_LOG_LEVEL` (default `INFO`) — nível mínimo;
+- `API_LOG_JSON` (default `true`) — JSON lines em stdout (prod); `false` → console legível (dev/test).
 
 ## Dados de demonstração (seeds)
 
@@ -351,14 +395,16 @@ curl http://localhost:8000/health
 
 ### 5. Caminhos de erro (opcionais)
 
+Respostas `403/404/409/500` de domínio usam `application/problem+json` (corpo com `type`/`title`/`status`/`detail`/`instance`).
+
 | Request | Expectativa |
 |---|---|
-| `GET /v1/appointments/00000000-0000-4000-8000-000000000001` | `404` |
-| `GET /v1/patients/{id}` com UUID inexistente | `404` |
-| `POST /v1/appointments` com `patient_id = 2338a014-…` (Lucas, inativo) | `409` |
-| `POST /v1/appointments` com `slot_id = 7b983580-…` (blocked) | `409` |
-| `GET /v1/availability?date=21-09-2026` | `422` |
-| Cancel de `d6e99970-…` (já cancelado) | `409` |
+| `GET /v1/appointments/00000000-0000-4000-8000-000000000001` | `404` problem+json (`Appointment not found.`) |
+| `GET /v1/patients/{id}` com UUID inexistente | `404` problem+json |
+| `POST /v1/appointments` com `patient_id = 2338a014-…` (Lucas, inativo) | `409` problem+json |
+| `POST /v1/appointments` com `slot_id = 7b983580-…` (blocked) | `409` problem+json |
+| `GET /v1/availability?date=21-09-2026` | `422` FastAPI `detail[]` |
+| Cancel de `d6e99970-…` (já cancelado) | `409` problem+json |
 
 ### 6. Resetar o estado para repetir
 
@@ -407,7 +453,12 @@ apps/api/src/essentia_api/
 │   ├── routes/          # adaptação HTTP (health, patients, services, availability, appointments)
 │   ├── dependencies.py  # pool de conexão via app.state
 │   └── router.py        # prefixo /v1
-├── core/config.py       # Settings (env vars)
+├── core/
+│   ├── config.py        # Settings (env vars, logging)
+│   ├── errors.py        # hierarchy AppError + handlers RFC 7807
+│   ├── logging.py       # setup structlog (JSON stdout / console)
+│   ├── middleware.py    # CorrelationIdMiddleware (X-Correlation-ID)
+│   └── pool.py          # (ver db/)
 ├── db/
 │   ├── pool.py
 │   ├── queries/         # SQL fonte do sqlc

@@ -42,6 +42,7 @@ export async function listPatientAppointments(
       method: "GET",
       headers: {
         Accept: "application/json",
+        "X-Patient-Id": patientId,
       },
       signal,
     },

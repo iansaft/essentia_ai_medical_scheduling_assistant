@@ -10,6 +10,9 @@ from essentia_api.core.config import (
     Settings,
     load_settings,
 )
+from essentia_api.core.errors import register_exception_handlers
+from essentia_api.core.logging import setup_logging
+from essentia_api.core.middleware import CorrelationIdMiddleware
 from essentia_api.db.pool import create_connection_pool
 
 
@@ -24,6 +27,11 @@ def create_app(
     so they never depend on cached or import-time production configuration.
     """
     app_settings = settings or load_settings()
+
+    setup_logging(
+        level=app_settings.log_level,
+        json_logs=app_settings.log_json,
+    )
 
     @asynccontextmanager
     async def lifespan(
@@ -53,6 +61,9 @@ def create_app(
         lifespan=lifespan,
     )
 
+    register_exception_handlers(app)
+
+    app.add_middleware(CorrelationIdMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=app_settings.cors_origins,
