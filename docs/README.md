@@ -9,6 +9,7 @@ Esta pasta concentra as principais decisões de produto, domínio e engenharia d
 | [system-requirements.md](./system-requirements.md) | Escopo, requisitos funcionais e requisitos não funcionais |
 | [business-rules.md](./business-rules.md) | Regras de negócio de pacientes, catálogo, disponibilidade, agendamento e cancelamento |
 | [architecture.md](./architecture.md) | Arquitetura, responsabilidades por componente, fluxos e boundaries |
+| [n8n-workflow-architecture.md](./n8n-workflow-architecture.md) | Arquitetura, topologia e resiliência do workflow n8n |
 | [data-model.md](./data-model.md) | Modelo relacional, invariantes e constraints relevantes |
 | [design-decisions.md](./design-decisions.md) | Decisões arquiteturais, trade-offs e alternativas evitadas |
 | [web-application.md](./web-application.md) | Especificação da aplicação web (requisitos WEB-RF/RNF, contratos, decisões WEB-DD) |
@@ -28,6 +29,7 @@ Princípio central:
 
 - health check;
 - listagem de pacientes;
+- cadastro de pacientes (`POST /v1/patients`, aberto; `409` e-mail/telefone duplicado);
 - consulta de paciente por ID;
 - histórico de agendamentos do paciente;
 - listagem e consulta de serviços;
@@ -49,7 +51,8 @@ Princípio central:
 
 - SPA React + TypeScript + Vite em `apps/web` (spec: [web-application.md](./web-application.md));
 - seleção de paciente com carga via `GET /v1/patients` (WEB-RF-01);
-- chat textual e de áudio com o webhook do n8n, usando o UUID do paciente como `sessionId` (WEB-RF-02…05);
+- cadastro de paciente pelo modal **Novo paciente** via `POST /v1/patients`, com `409` amigável e recarga da lista (WEB-RF-01);
+- chat textual e de áudio com o webhook do n8n, usando o UUID do paciente como `sessionId` e enviando também `patientId`, `patientName`, `patientEmail` e `patientPhone` (WEB-RF-02…05);
 - histórico de agendamentos em painel somente leitura via `GET /v1/patients/{patient_id}/appointments` (WEB-RF-06);
 - re-fetch do histórico após cada turno concluído e após troca de paciente (WEB-RF-07);
 - isolamento de estado entre pacientes, com abort/ignorância de respostas fora de contexto (WEB-RF-08);

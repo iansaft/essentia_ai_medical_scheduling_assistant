@@ -13,7 +13,7 @@ flowchart LR
     STT --> A
 
     A -->|tool/function call| API[FastAPI]
-    W -->|leituras REST<br/>patients, appointments,<br/>availability, health| API
+    W -->|leituras + cadastro paciente<br/>patients, appointments,<br/>availability, health| API
     API <-->|cache-aside<br/>availability| RD[(Redis)]
     API --> DB[(PostgreSQL)]
 
@@ -25,11 +25,13 @@ flowchart LR
     N -->|resposta| W
 ```
 
-A aplicação web é uma camada de apresentação: não implementa regras de agendamento, não decide disponibilidade e não executa mutações de domínio. Conversa (texto/áudio) vai ao n8n; dados determinísticos (seleção de paciente, histórico de agendamentos, health) vão à FastAPI. Detalhes em [`web-application.md`](./web-application.md).
+A aplicação web é uma camada de apresentação: não implementa regras de agendamento, não decide disponibilidade e não executa mutações de agendamento — o único comando de escrita da UI é o cadastro de pacientes (`POST /v1/patients`). Conversa (texto/áudio) vai ao n8n; dados determinísticos (seleção/cadastro de paciente, histórico de agendamentos, health) vão à FastAPI. Detalhes em [`web-application.md`](./web-application.md).
 
 ## 2. Responsabilidades por componente
 
 ### n8n — orchestration layer
+
+Detalhamento completo (topologia, nodes, retries, Redis e e-mail) em [`n8n-workflow-architecture.md`](./n8n-workflow-architecture.md).
 
 Responsável por:
 
@@ -262,9 +264,9 @@ Falhas ou staleness do cache nunca mudam o resultado de uma mutação; no máxim
 ### Web versus domínio
 
 ```text
-Web: apresentação, conversa, seleção de identidade de demonstração
+Web: apresentação, conversa, seleção/cadastro de identidade de demonstração
 n8n/Agent: intenção, orquestração, STT/TTS
-API: regras e leituras determinísticas
+API: regras, escrita de cadastro e leituras determinísticas
 DB: invariantes e persistência
 ```
 

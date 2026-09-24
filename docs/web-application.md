@@ -5,10 +5,10 @@
 Construir uma aplicação web para demonstrar a experiência conversacional do **Essentia AI Medical Scheduling Assistant**, integrando:
 
 - **n8n / AI Agent** para interação conversacional por texto e áudio;
-- **FastAPI** para consultas determinísticas necessárias à interface;
+- **FastAPI** para consultas determinísticas e para o cadastro de pacientes;
 - **PostgreSQL**, acessado exclusivamente pela API, como fonte de verdade transacional.
 
-A aplicação web é uma camada de apresentação e interação. Ela não implementa regras de agendamento, não decide disponibilidade e não executa mutações de domínio diretamente.
+A aplicação web é uma camada de apresentação e interação. Ela não implementa regras de agendamento, não decide disponibilidade e não executa mutações de agendamento diretamente; o único comando de escrita originado na UI é o cadastro de paciente (`POST /v1/patients`), executado e validado pela FastAPI.
 
 Princípio mantido:
 
@@ -18,26 +18,29 @@ Princípio mantido:
 
 ## 2. Escopo funcional
 
-### WEB-RF-01 — Selecionar paciente
+### WEB-RF-01 — Selecionar e cadastrar paciente
 
-A aplicação deve carregar os pacientes cadastrados e permitir selecionar o paciente representado na conversa.
+A aplicação deve carregar os pacientes cadastrados, permitir selecionar o paciente representado na conversa e cadastrar novos pacientes.
 
 Para o ambiente demonstrativo:
 
 - o seletor deve exibir pelo menos nome e e-mail;
 - pacientes inativos podem ser exibidos, desde que seu estado seja identificado visualmente;
 - o primeiro paciente ativo pode ser selecionado automaticamente;
-- se não houver pacientes, chat e histórico de agendamentos devem permanecer indisponíveis.
+- se não houver pacientes, chat e histórico de agendamentos devem permanecer indisponíveis, mas o botão **Novo paciente** continua habilitado para permitir o primeiro cadastro;
+- o modal deve ter fundo em blur (scrim), fechar por Escape/clique no backdrop, não pode abrir outro modal dentro dele, e deve exibir mensagens amigáveis para conflitos de e-mail/telefone (`409`);
+- após cadastro bem-sucedido, a lista é recarregada e o novo paciente é selecionado automaticamente.
 
 A seleção manual do paciente representa apenas uma identidade de demonstração e não substitui autenticação ou autorização.
 
-Dependência da API:
+Dependências da API:
 
 ```http
 GET /v1/patients
+POST /v1/patients
 ```
 
-Campos mínimos necessários (contrato canônico da API usa `full_name`, mesmo de `GET /v1/patients/{patient_id}`):
+Contrato de listagem (canônico usa `full_name`, mesmo de `GET /v1/patients/{patient_id}`):
 
 ```json
 [
@@ -79,21 +82,25 @@ O usuário deve poder enviar mensagens de texto ao endpoint conversacional do n8
 
 Cada requisição deve fornecer semanticamente:
 
-- UUID do paciente selecionado, utilizado como chave da sessão conversacional;
-- e-mail do paciente selecionado;
+- UUID do paciente selecionado (`patientId`), utilizado também como chave da sessão conversacional (`sessionId`);
+- nome completo, e-mail e telefone do paciente selecionado;
 - texto digitado pelo usuário.
 
 Contrato conceitual:
 
 ```json
 {
+  "action": "sendMessage",
   "sessionId": "uuid-do-paciente",
+  "patientId": "uuid-do-paciente",
+  "patientName": "Maria Silva",
   "patientEmail": "maria@example.com",
+  "patientPhone": "+5548999990001",
   "chatInput": "Gostaria de agendar uma consulta de cardiologia."
 }
 ```
 
-Enquanto o workflow n8n utilizar o campo `sessionId`, o frontend deve preencher esse campo com `selectedPatient.id`. Se o contrato do workflow for alterado futuramente para aceitar `patientId` diretamente como chave de memória, o frontend deve acompanhar esse contrato sem criar um identificador adicional.
+Enquanto o workflow n8n utilizar o campo `sessionId`, o frontend preenche esse campo com `selectedPatient.id`; `patientId` é enviado em paralelo com o mesmo valor para que o contrato do workflow possa migrar para o campo dedicado sem alteração no frontend. Os demais campos carregam os dados cadastrais do paciente selecionado para uso do Agent.
 
 Os nomes finais dos campos devem seguir o contrato efetivamente exposto pelo workflow n8n.
 
@@ -116,8 +123,13 @@ O navegador deve enviar o áudio ao n8n sem realizar speech-to-text localmente.
 O transporte recomendado é `multipart/form-data`, contendo semanticamente:
 
 ```text
+action = sendMessage
 sessionId = selectedPatient.id
+patientId = selectedPatient.id
+patientName
 patientEmail
+patientPhone
+messageType = audio
 audio file
 ```
 
@@ -302,6 +314,7 @@ Os controles interativos devem possuir labels acessíveis e navegação por tecl
 No mínimo:
 
 - seletor de paciente;
+- botão Novo paciente e controles do modal de cadastro (formulário, fechar, cancelar, enviar);
 - input de mensagem;
 - botão de envio;
 - controles de gravação;
@@ -334,7 +347,7 @@ flowchart LR
     U[Usuário] --> W[React + TypeScript + Vite]
 
     W -->|Texto ou áudio| N[n8n / AI Agent]
-    W -->|Leituras determinísticas| A[FastAPI]
+    W -->|REST: leituras + cadastro de paciente| A[FastAPI]
 
     N -->|Tools / function calls| A
     A --> D[(PostgreSQL)]
@@ -345,7 +358,7 @@ flowchart LR
 O browser possui dois boundaries de integração:
 
 1. **n8n**, para conversa por texto/áudio e resposta do Agent;
-2. **FastAPI**, para dados determinísticos necessários à interface.
+2. **FastAPI**, para dados determinísticos necessários à interface e para o cadastro de pacientes.
 
 O browser não acessa diretamente PostgreSQL, providers de IA ou integrações externas.
 
@@ -375,14 +388,15 @@ sequenceDiagram
 
 ### 5.1 Web → FastAPI
 
-Endpoints necessários para o frontend:
+Endpoints utilizados pelo frontend:
 
 ```http
 GET /v1/patients
+POST /v1/patients
 GET /v1/patients/{patient_id}/appointments
 ```
 
-Esses endpoints são somente leitura sob a perspectiva da aplicação web.
+`GET /v1/patients` e `GET /v1/patients/{patient_id}/appointments` são somente leitura sob a perspectiva da aplicação web. `POST /v1/patients` é o comando de escrita originado na UI (cadastro aberto, sem `X-Patient-Id` nem `Idempotency-Key`; unicidade de e-mail/telefone retorna `409`).
 
 A listagem de agendamentos deve:
 
@@ -397,20 +411,29 @@ A listagem de agendamentos deve:
 Para texto, a requisição deve transportar:
 
 ```text
+action = sendMessage
 sessionId = selectedPatient.id
+patientId = selectedPatient.id
+patientName
 patientEmail
+patientPhone
 chatInput
 ```
 
 Para áudio:
 
 ```text
+action = sendMessage
 sessionId = selectedPatient.id
+patientId = selectedPatient.id
+patientName
 patientEmail
+patientPhone
+messageType = audio
 audio file
 ```
 
-Nesta versão, `sessionId` não representa uma entidade de sessão independente: ele recebe diretamente o UUID persistente do paciente selecionado e é utilizado pelo n8n/Agent como chave de memória conversacional.
+Nesta versão, `sessionId` não representa uma entidade de sessão independente: ele recebe diretamente o UUID persistente do paciente selecionado e é utilizado pelo n8n/Agent como chave de memória conversacional. `patientId` envia o mesmo valor como campo dedicado, e os campos `patientName`/`patientEmail`/`patientPhone` carregam os dados cadastrais do paciente selecionado.
 
 O workflow continua responsável por:
 
@@ -456,6 +479,7 @@ Modelo conceitual:
 ```text
 patients
 selectedPatient
+isCreatePatientOpen
 
 messages
 messageInput
@@ -512,7 +536,25 @@ sequenceDiagram
     A-->>W: Estado atual
 ```
 
-### 7.3 Troca de paciente
+### 7.3 Criação de paciente
+
+```mermaid
+flowchart TD
+    A[Usuário clica em Novo paciente] --> B[Abrir modal com foco no nome]
+    B --> C{Submit do formulário}
+    C -->|Erro de validação| D[Exibir erros de campo]
+    C -->|POST /v1/patients| E{Resposta}
+    E -->|409 duplicado| F[Mensagem amigável no modal]
+    E -->|422/erro| G[Mensagem de erro no modal]
+    E -->|201| H[Fechar modal]
+    H --> I[Recarregar lista de pacientes]
+    I --> J[Selecionar o novo paciente]
+    J --> L[Limpar conversa e carregar histórico]
+```
+
+Ao fechar o modal (Escape, backdrop, Cancelar ou X), o foco é restaurado no botão **Novo paciente**. Um único estado de modal no `App` impede modal dentro de modal.
+
+### 7.4 Troca de paciente
 
 ```mermaid
 flowchart TD
@@ -525,7 +567,7 @@ flowchart TD
 
 O frontend não deve reaproveitar memória conversacional entre pacientes diferentes. Por outro lado, ao voltar para um paciente já utilizado, o mesmo UUID volta a ser usado como chave e, portanto, referencia a mesma memória conversacional persistente daquele paciente.
 
-### 7.4 Queda de conexão durante o processamento
+### 7.5 Queda de conexão durante o processamento
 
 ```mermaid
 sequenceDiagram
@@ -834,7 +876,7 @@ Não fazem parte desta etapa:
 
 - autenticação e autorização de usuários finais;
 - verificação real de identidade do paciente;
-- cadastro ou edição de pacientes;
+- edição de pacientes (o cadastro via `POST /v1/patients` está implementado);
 - criação ou cancelamento de agendamento por botões específicos da UI;
 - edição direta de status;
 - prontuário eletrônico;
@@ -849,10 +891,11 @@ Não fazem parte desta etapa:
 
 ## 11. Dependências para o frontend
 
-A API já disponibiliza os endpoints de leitura necessários:
+A API já disponibiliza os endpoints necessários:
 
 ```http
 GET /v1/patients
+POST /v1/patients
 GET /v1/patients/{patient_id}/appointments
 ```
 
@@ -864,7 +907,7 @@ O workflow n8n precisa possuir um contrato browser-facing estável para:
 - upload de áudio;
 - retorno textual;
 - retorno opcional de áudio;
-- identificação explícita do paciente, usando seu UUID também como `sessionId`/chave de memória conversacional;
+- identificação explícita do paciente (`patientId`, dados cadastrais e UUID também como `sessionId`/chave de memória conversacional);
 - resposta final no mesmo ciclo HTTP do request nesta versão;
 - timeout operacional compatível com o tempo esperado do Agent;
 - CORS para a origem da aplicação web.
@@ -878,7 +921,7 @@ Esses contratos do n8n devem ser validados/confirmados antes de tratar a integra
 ### Implementado
 
 - FastAPI e regras determinísticas de agendamento;
-- endpoints de leitura `GET /v1/patients` e `GET /v1/patients/{patient_id}/appointments`;
+- endpoints `GET /v1/patients`, `GET /v1/patients/{patient_id}/appointments` e cadastro aberto `POST /v1/patients` (`409` e-mail/telefone duplicado);
 - CORS configurável na API (`API_CORS_ORIGINS`);
 - health check de readiness do n8n (`GET /health/n8n`);
 - PostgreSQL e invariantes transacionais;
@@ -886,7 +929,8 @@ Esses contratos do n8n devem ser validados/confirmados antes de tratar a integra
 - AI Agent (workflow n8n);
 - aplicação web completa em `apps/web`:
   - seleção de paciente (WEB-RF-01) com seleção automática do primeiro ativo;
-  - chat textual (WEB-RF-03) e gravação/envio de áudio (WEB-RF-04);
+  - criação de paciente (WEB-RF-01): botão **Novo paciente** no card do seletor, modal acessível (`role="dialog"`, scrim com blur, Escape/backdrop, focus trap) com formulário nome/e-mail/telefone, mensagens amigáveis para `409` e recarga + seleção do novo paciente após `201`;
+  - chat textual (WEB-RF-03) e gravação/envio de áudio (WEB-RF-04), com payload que inclui `patientId`, `patientName`, `patientEmail` e `patientPhone`;
   - exibição de respostas textuais e reprodução de áudio TTS (WEB-RF-05);
   - histórico de agendamentos somente leitura (WEB-RF-06);
   - re-fetch após turno e troca de paciente (WEB-RF-07);

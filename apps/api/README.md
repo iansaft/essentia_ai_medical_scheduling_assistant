@@ -2,7 +2,7 @@
 
 API **FastAPI** responsável pelas operações determinísticas do domínio de agendamento médico: consulta de pacientes, catálogo de serviços e pagamentos, disponibilidade de agenda, criação e cancelamento de agendamentos.
 
-A API é a fonte da verdade para regras de negócio transacionais (o LLM/Agente e o n8n consomem este contrato; a aplicação web em `apps/web` consome as rotas de leitura). A especificação HTTP é gerada automaticamente pelo FastAPI em `/openapi.json` — é a única fonte de documentação de endpoints.
+A API é a fonte da verdade para regras de negócio transacionais (o LLM/Agente e o n8n consomem este contrato; a aplicação web em `apps/web` consome as rotas de leitura e o cadastro aberto de pacientes). A especificação HTTP é gerada automaticamente pelo FastAPI em `/openapi.json` — é a única fonte de documentação de endpoints.
 
 - Documentação técnica do projeto: [`../../docs/`](../../docs/README.md)
 - Timezone de negócio: `America/Sao_Paulo`
@@ -272,10 +272,10 @@ Example no OpenAPI: `8029d8d3-8fff-4dcc-a2ef-2ae0808bf95e` (único `scheduled` n
 | Código | Semântica |
 |---|---|
 | `200 OK` | Leitura (ou cancelamento) bem-sucedida |
-| `201 Created` | Appointment criado |
+| `201 Created` | Appointment ou paciente criado (`POST /v1/appointments`, `POST /v1/patients`) |
 | `403 Forbidden` | `X-Patient-Id` não corresponde ao dono do recurso (path, body ou `patient_id` do appointment) |
 | `404 Not Found` | Recurso não encontrado |
-| `409 Conflict` | Conflito de estado/concorrência: double booking, slot não cancelável, reuso inválido de `Idempotency-Key`, paciente/serviço/médico inativo, slot não `open`/passado |
+| `409 Conflict` | Conflito de estado/concorrência: double booking, slot não cancelável, reuso inválido de `Idempotency-Key`, paciente/serviço/médico inativo, slot não `open`/passado, e-mail ou telefone de paciente já existentes (`POST /v1/patients`) |
 | `422 Unprocessable Entity` | Validação de path/query/body/header (Pydantic/FastAPI), incluindo `X-Patient-Id`/`Idempotency-Key` ausentes |
 | `503 Service Unavailable` | Dependência externa indisponível (`GET /health/n8n` quando o n8n não está pronto) |
 | `500 Internal Server Error` | Falha não tratada |
@@ -438,7 +438,9 @@ curl http://localhost:8000/health
 2. Confirme a variável da coleção: `baseUrl = http://localhost:8000`;
 3. Todos os endpoints, bodies, headers e examples vêm pré-preenchidos do OpenAPI — nada precisa ser digitado à mão na primeira passada.
 
-### 3. Sequência de leitura (sem efeito colateral)
+### 3. Sequência de leitura e cadastro (efetos limitados)
+
+O passo `5b` cria um paciente de demonstração no banco (efeito colateral limitado e removível com `make seed-down && seed-up`); os demais passos desta sequência são leitura.
 
 | # | Request | Expectativa |
 |---|---|---|
@@ -448,6 +450,9 @@ curl http://localhost:8000/health
 | 3 | `GET /v1/services/{service_id}` (example `e2fb5edd-…`) | `200` → Cardiologia, 320,00 BRL |
 | 4 | `GET /v1/services/{service_id}/payment-methods` (mesmo id) | `200` → PIX, cartão de crédito (até 6x), débito |
 | 5 | `GET /v1/patients/{patient_id}` (example `3cdf666b-…`) | `200` → Maria Silva |
+| 5b | `POST /v1/patients` — body example (Joana Souza, sem headers especiais) | `201` → novo paciente com `is_active: true` |
+| 5c | Reenvie o mesmo body | `409` problem+json (`/problems/patient-email-already-exists`) |
+| 5d | `GET /v1/patients` | `200` → lista inclui Joana (além das seeds) |
 | 6 | `GET /v1/availability` sem filtros | `200` → lista slots futuros (não inclui `26036bfd-…` nem `7b983580-…`) |
 | 7 | `GET /v1/availability?doctor_id=0dfc6223-…` | `200` → só slots da Dr. Helena |
 | 8 | `GET /v1/availability?service_id=e2fb5edd-…` | `200` → só slots de cardiologia |
@@ -478,10 +483,25 @@ Respostas `403/404/409/500` de domínio usam `application/problem+json` (corpo c
 |---|---|
 | `GET /v1/appointments/00000000-0000-4000-8000-000000000001` | `404` problem+json (`Appointment not found.`) |
 | `GET /v1/patients/{id}` com UUID inexistente | `404` problem+json |
+| `POST /v1/patients` com email `maria.silva@example.com` (seed, qualquer caixa) | `409` problem+json (`/problems/patient-email-already-exists`) |
+| `POST /v1/patients` com phone `+5548999990001` (Maria, seed) | `409` problem+json (`/problems/patient-phone-already-exists`) |
+| `POST /v1/patients` com body vazio | `422` FastAPI `detail[]` |
 | `POST /v1/appointments` com `patient_id = 2338a014-…` (Lucas, inativo) | `409` problem+json |
 | `POST /v1/appointments` com `slot_id = 7b983580-…` (blocked) | `409` problem+json |
 | `GET /v1/availability?date=21-09-2026` | `422` FastAPI `detail[]` |
 | Cancel de `d6e99970-…` (já cancelado) | `409` problem+json |
+
+Exemplo problem+json de `POST /v1/patients`:
+
+```json
+{
+  "type": "/problems/patient-email-already-exists",
+  "title": "Conflict",
+  "status": 409,
+  "detail": "Patient email already exists.",
+  "instance": "/v1/patients"
+}
+```
 
 ### 6. Resetar o estado para repetir
 
@@ -557,7 +577,7 @@ apps/api/src/essentia_api/
 | Documento | Conteúdo |
 |---|---|
 | [`../../docs/system-requirements.md`](../../docs/system-requirements.md) | Requisitos funcionais e não funcionais |
-| [`../../docs/business-rules.md`](../../docs/business-rules.md) | Regras de domínio (BR-01…BR-36) |
+| [`../../docs/business-rules.md`](../../docs/business-rules.md) | Regras de domínio (BR-01…BR-38) |
 | [`../../docs/architecture.md`](../../docs/architecture.md) | Arquitetura e fluxos (booking, cancelamento, disponibilidade) |
 | [`../../docs/data-model.md`](../../docs/data-model.md) | Modelo relacional e invariantes |
 | [`../../docs/design-decisions.md`](../../docs/design-decisions.md) | Trade-offs (idempotência, snapshot de preço, sqlc) |

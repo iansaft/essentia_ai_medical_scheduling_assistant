@@ -9,12 +9,13 @@ A aplicação é uma *Single Page Application* leve construída com React, TypeS
 A aplicação web é responsável por:
 
 * Selecionar o paciente da demonstração (`GET /v1/patients`), com seleção automática do primeiro ativo;
+* Cadastrar novos pacientes pelo botão **Novo paciente** e modal de cadastro (`POST /v1/patients`, sem autenticação; conflito de e-mail/telefone → `409`);
 * Exibir a conversa entre o usuário e o assistente de IA;
-* Enviar mensagens de texto para o *n8n Chat Trigger*, usando o UUID do paciente como `sessionId`;
+* Enviar mensagens de texto para o *n8n Chat Trigger*, usando o UUID do paciente como `sessionId` e enviando também `patientId`, `patientName`, `patientEmail` e `patientPhone`;
 * Gravar áudio através do microfone do navegador;
-* Enviar o áudio gravado para o n8n para processamento de *speech-to-text* (fala para texto);
+* Enviar o áudio gravado para o n8n para processamento de *speech-to-text* (fala para texto), com os mesmos campos do paciente no *form data*;
 * Exibir o histórico de agendamentos do paciente (`GET /v1/patients/{patient_id}/appointments`) em painel somente leitura;
-* Re-consultar o histórico após cada turno concluído e após trocar de paciente;
+* Re-consultar o histórico após cada turno concluído, após trocar de paciente e após cadastrar um novo paciente;
 * Isolar conversa e estado entre pacientes (requests do paciente anterior são abortados/ignorados);
 * Manter o identificador da sessão conversacional no navegador;
 * Apresentar estados de carregamento, gravação, erro e histórico possivelmente desatualizado.
@@ -153,6 +154,6 @@ O modelo de IA é responsável pela interpretação conversacional e seleção d
 ## Segurança
 
 * Nenhuma chave de API de provedor de LLM é exposta ao *frontend*.
-* O navegador se comunica com o *endpoint* conversacional do n8n (conversa) e com a FastAPI (leituras: pacientes, agendamentos, health) — nunca com o PostgreSQL nem com providers de IA.
+* O navegador se comunica com o *endpoint* conversacional do n8n (conversa) e com a FastAPI (leituras de pacientes/agendamentos/health e cadastro aberto de pacientes) — nunca com o PostgreSQL nem com providers de IA.
 * Todas as credenciais de provedores devem ser configuradas usando os *n8n Credentials* ou variáveis de ambiente no lado do servidor.
 * Não coloque segredos em variáveis prefixadas com `VITE_`.

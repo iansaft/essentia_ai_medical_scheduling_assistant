@@ -24,6 +24,12 @@ Campos relevantes:
 - `is_active`;
 - timestamps.
 
+Invariantes de unicidade (cadastro via `POST /v1/patients`, BR-37/BR-38):
+
+- `uq_patients_email_lower` — `UNIQUE` sobre `lower(email)`;
+- `uq_patients_phone` — `UNIQUE` sobre `phone` (`NULL` não colide);
+- violações são traduzidas pela API para `409` (`/problems/patient-email-already-exists`, `/problems/patient-phone-already-exists`).
+
 ### `specialties`
 
 Catálogo de especialidades médicas, como cardiologia e dermatologia.
@@ -138,6 +144,10 @@ UNIQUE (slot_id) WHERE status = 'scheduled'
 ```
 
 Appointments históricos cancelados, concluídos ou `no_show` podem coexistir com o mesmo slot sem bloquear indevidamente uma nova reserva quando a regra de negócio permitir.
+
+### Unicidade de contato do paciente
+
+`uq_patients_email_lower` torna `email` único sem distinção de caixa; `uq_patients_phone` torna `phone` único (valores `NULL` não colidem). Esses índices suportam o cadastro aberto (`POST /v1/patients`) e impedem duplicatas mesmo sob concorrência; a aplicação mapeia a violação para `409` (BR-38).
 
 ## 5. Disponibilidade derivada
 

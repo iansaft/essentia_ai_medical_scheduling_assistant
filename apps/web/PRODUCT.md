@@ -10,7 +10,7 @@ Primary users are clinic staff and patients interacting with the Essentia AI Med
 
 ## Product Purpose
 
-A presentation and interaction layer for the Essentia AI Medical Scheduling Assistant: patient selection, text/audio conversation with an n8n AI Agent, and a read-only appointment history synchronized from FastAPI after every completed turn. Success looks like: the full scheduling conversation works end-to-end, async states are explicit, failures never lie about domain mutations, and the UI reflects the Essentia pharma brand without inventing scheduling rules client-side.
+A presentation and interaction layer for the Essentia AI Medical Scheduling Assistant: patient selection, patient creation via a modal that posts to `POST /v1/patients`, text/audio conversation with an n8n AI Agent, and a read-only appointment history synchronized from FastAPI after every completed turn. Success looks like: the full scheduling conversation works end-to-end, async states are explicit, failures never lie about domain mutations, and the UI reflects the Essentia pharma brand without inventing scheduling rules client-side.
 
 ## Brand Personality
 

@@ -66,11 +66,13 @@ A unique constraint parcial continua necessária como garantia final.
 
 ## DD-10 — Idempotência na API
 
-**Decisão:** comandos mutáveis devem aceitar `Idempotency-Key`.
+**Decisão:** comandos mutáveis de agendamento devem aceitar `Idempotency-Key`.
 
 **Motivo:** n8n e integrações externas trabalham naturalmente com retry e entrega potencialmente repetida.
 
 A API deve suportar semantics de at-least-once sem duplicar efeitos.
+
+**Exceção:** `POST /v1/patients` é idempotente apenas no efeito (unicidade de e-mail/telefone, `409`), sem header `Idempotency-Key` — cadastro aberto de demonstração, não integrado por retry automatizado.
 
 ## DD-11 — SQL explícito + sqlc em vez de ORM
 
@@ -118,15 +120,19 @@ pgvector pode ser adicionado posteriormente para FAQ ou conhecimento textual sem
 
 ## DD-17 — Camada web sem regras de domínio
 
-**Decisão:** a SPA em `apps/web` é apenas apresentação e integração: conversa via n8n, leituras determinísticas via FastAPI, sem mutações de agendamento a partir da UI.
+**Decisão:** a SPA em `apps/web` é apenas apresentação e integração: conversa via n8n, leituras determinísticas e cadastro aberto de pacientes via FastAPI, sem mutações de agendamento a partir da UI.
 
-**Motivo:** preservar o boundary determinístico (API + PostgreSQL) e evitar duplicar regras de disponibilidade/preço no browser.
+**Motivo:** preservar o boundary determinístico (API + PostgreSQL) e evitar duplicar regras de disponibilidade/preço no browser. O cadastro de paciente (`POST /v1/patients`) é a única escrita da UI: validação e unicidade ficam na API (WEB-RF-01).
 
 **Detalhes e trade-offs do MVP** (request/response síncrono, UUID como `sessionId`, re-fetch como reconciliação): [`web-application.md`](./web-application.md) — WEB-DD-01…10.
 
 ## DD-18 — Identidade de paciente via header `X-Patient-Id` (sem autenticação)
 
-**Decisão:** rotas patient-scoped (`GET/POST /v1/appointments*`, `GET /v1/patients/{id}`, `GET /v1/patients/{id}/appointments`) exigem o header `X-Patient-Id`; o servidor compara o header com o dono do recurso (path, `patient_id` do body ou `patient_id` do appointment carregado). Mismatch retorna `403`. `GET /v1/patients`, catálogo, availability e health permanecem sem o header.
+**Decisão:** rotas patient-scoped (`GET/POST /v1/appointments*`, `GET /v1/patients/{id}`, `GET /v1/patients/{id}/appointments`) exigem o header `X-Patient-Id`; o servidor compara o header com o dono do recurso (path, `patient_id` do body ou `patient_id` do appointment carregado). Mismatch retorna `403`. `GET /v1/patients`, **`POST /v1/patients`**, catálogo, availability e health permanecem sem o header.
+
+**Motivo:** impedir que um paciente leia ou cancele dados de outro sem implementar autenticação completa (fora de escopo no MVP). A comparação no app layer é uma decisão prática de demo; o DB ainda garante integridade referencial, mas não enforce ownership (fase futura opcional: predicado `patient_id` nas queries sqlc).
+
+**Exceção deliberada:** `POST /v1/patients` é aberto (sem header, sem `Idempotency-Key`) para permitir cadastro de demonstração pela UI; unicidade de e-mail/telefone é garantida no banco e mapeada para `409` (`/problems/patient-email-already-exists`, `/problems/patient-phone-already-exists`).
 
 **Motivo:** impedir que um paciente leia ou cancele dados de outro sem implementar autenticação completa (fora de escopo no MVP). A comparação no app layer é uma decisão prática de demo; o DB ainda garante integridade referencial, mas não enforce ownership (fase futura opcional: predicado `patient_id` nas queries sqlc).
 

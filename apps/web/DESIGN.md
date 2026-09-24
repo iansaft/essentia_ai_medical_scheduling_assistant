@@ -206,7 +206,7 @@ Controls are crisp and quiet: dry borders, bronze only for the committed action,
 ### Cards / Containers
 - **Corner Style:** 2px (`rounded-sm`).
 - **Background:** Parchment Stock (`raised`) for panels; chat message stream uses Ledger Canvas (`canvas`); header uses Warm Vellum at 90% opacity + backdrop-blur.
-- **Shadow Strategy:** Panel lift only (`shadow-sm`); see Elevation.
+- **Shadow Strategy:** Panel lift only (`shadow-sm`); see Elevation. The create-patient dialog scrim uses backdrop-blur (not elevation) to isolate the modal.
 - **Border:** 1px Hairline Sand (`border-line`); header bottom rule is `border-brand/40`.
 - **Internal Padding:** 16px (`p-4` / `px-4 py-3`); list rows `p-4` separated by `divide-y divide-line`.
 
@@ -215,6 +215,15 @@ Controls are crisp and quiet: dry borders, bronze only for the committed action,
 - **Focus:** border → Aged Brass, `ring-2 ring-brand-light/60`, no layout shift.
 - **Disabled:** Ledger Canvas fill, not-allowed cursor.
 - **Select (Patient):** same field chrome; native select, full width.
+
+### Dialog / Modal (Create patient)
+- **Scrim:** full-viewport backdrop with `backdrop-blur` and a dark translucent wash; click dismisses.
+- **Panel:** centered Parchment Stock card, 2px radius, 1px Hairline Sand border, panel-lift shadow only.
+- **Title:** Title type (Inter 600); close control is a secondary ghost icon button (top-right).
+- **Fields:** Nome completo, Email, Telefone (opcional) using input-text chrome; field errors in danger text, never color alone.
+- **Actions:** secondary "Cancelar" + primary "Salvar" (Burnished Bronze); primary is the only gold fill in the dialog.
+- **Form-level errors** (e.g. `409` email/phone already exists): danger-soft strip with `role="alert"` and plain-language copy.
+- **Accessibility:** `role="dialog"` + `aria-modal`, focus moves to first field on open, focus trap while open, Escape and backdrop close, focus returns to the "Novo paciente" trigger. A single modal state in `App` prevents nested modals.
 
 ### Navigation
 - **App header:** single bar, `min-h-16`, Warm Vellum/90 + blur, bottom hairline `border-brand/40`. Left: 40px Burnished Bronze tile (2px radius) + Cinzel uppercase wordmark + Inter muted subtitle. Right: connection chip. No tab bar; the app is one screen.

@@ -6,9 +6,9 @@ Construir um assistente de agendamento médico capaz de consultar informações 
 
 ## 2. Escopo funcional
 
-### RF-01 — Consultar paciente
+### RF-01 — Consultar e cadastrar paciente
 
-O sistema deve permitir recuperar os dados cadastrais necessários de um paciente conhecido pelo sistema.
+O sistema deve permitir recuperar os dados cadastrais necessários de um paciente conhecido pelo sistema e cadastrar novos pacientes (`POST /v1/patients`, endpoint aberto sem autenticação; unicidade de e-mail/telefone garantida no banco e traduzida para `409`). Campos são normalizados com trim; `phone` é opcional.
 
 ### RF-02 — Consultar serviços médicos
 
@@ -64,7 +64,7 @@ O fluxo conversacional deve oferecer mensagens adequadas de abertura e encerrame
 
 ### RF-12 — Experiência web (camada de apresentação)
 
-A solução deve incluir uma aplicação web que permita selecionar o paciente da demonstração, conversar por texto/áudio com o n8n e consultar o histórico de agendamentos pela API, sem implementar regras de agendamento no browser.
+A solução deve incluir uma aplicação web que permita selecionar e cadastrar o paciente da demonstração, conversar por texto/áudio com o n8n e consultar o histórico de agendamentos pela API, sem implementar regras de agendamento no browser.
 
 Os requisitos detalhados da camada web (WEB-RF-01…08 e WEB-RNF-01…08) estão em [`web-application.md`](./web-application.md).
 

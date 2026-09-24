@@ -11,8 +11,8 @@ A camada web possui suíte própria de testes unitários com `vitest` e React Te
 Estado atual da suíte da API:
 
 ```text
-132 tests passed
-94.47% total coverage
+141 tests passed
+93.98% total coverage
 minimum required coverage: 85%
 ```
 
@@ -26,6 +26,7 @@ Cobertura inclui:
 - paciente existente retorna `200`;
 - paciente inexistente retorna `404`;
 - listagem de pacientes (ativos e inativos);
+- cadastro de paciente (`POST /v1/patients` aberto): `201` com `is_active = true`, `409` para e-mail/telefone duplicados (case-insensitive), `422` para body inválido/campos em branco;
 - histórico de agendamentos do paciente (todos os status, `starts_at DESC`);
 - histórico de paciente inexistente retorna `404`;
 - histórico vazio retorna `[]`;
@@ -88,7 +89,9 @@ Cobertura dos testes unitários (Vitest) em `apps/web`:
 
 - formatação de datas/valores e schemas Zod;
 - serviços HTTP (pacientes, agendamentos, health) com mock de `fetch`;
+- criação de pacientes no serviço (`createPatient`);
 - componentes de chat (bolha de mensagem, composer, player de áudio, markdown);
+- `CreatePatientModal` (validação, `409` amigável, fechamento por Escape/backdrop, focus trap);
 - header e status de conexão (online/offline).
 
 Execução: `make web-test` (ou `make web-check` para typecheck + testes).
@@ -121,6 +124,7 @@ GET /health
 GET /health/n8n
 
 GET /v1/patients
+POST /v1/patients
 GET /v1/patients/{patient_id}
 GET /v1/patients/{patient_id}/appointments
 
@@ -224,10 +228,10 @@ mensagem -> workflow -> Agent -> API -> PostgreSQL -> integração externa
 Semântica utilizada:
 
 - `200 OK` — leitura bem-sucedida;
-- `201 Created` — appointment criado;
+- `201 Created` — appointment ou paciente criado (`POST /v1/appointments`, `POST /v1/patients`);
 - `403 Forbidden` — `X-Patient-Id` não corresponde ao dono do recurso patient-scoped;
 - `404 Not Found` — recurso não encontrado;
-- `409 Conflict` — conflito de estado/concorrência, como double booking ou reutilização inválida de chave de idempotência;
+- `409 Conflict` — conflito de estado/concorrência, como double booking, reutilização inválida de chave de idempotência ou e-mail/telefone de paciente já existentes;
 - `422 Unprocessable Entity` — validação de parâmetros/body/headers pelo FastAPI/Pydantic (inclui `X-Patient-Id` e `Idempotency-Key` ausentes);
 - `503 Service Unavailable` — dependência externa indisponível (readiness do n8n em `GET /health/n8n`);
 - `500 Internal Server Error` — falha não tratada, que deve ser observável em logs e não usada para regras esperadas de domínio.

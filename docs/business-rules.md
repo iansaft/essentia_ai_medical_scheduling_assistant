@@ -8,6 +8,10 @@
 
 **BR-03.** A consulta de paciente pode retornar dados cadastrais independentemente de existir agenda futura associada a ele.
 
+**BR-37.** O cadastro de paciente (`POST /v1/patients`) é aberto (sem `X-Patient-Id`), exige `full_name` e `email` não vazios, aceita `phone` opcional e normaliza campos com trim antes de persistir.
+
+**BR-38.** E-mail de paciente é único no sistema, sem distinção de caixa; telefone, quando informado, também é único. Violação retorna HTTP `409` com problem type `/problems/patient-email-already-exists` ou `/problems/patient-phone-already-exists`.
+
 ## 2. Médicos, especialidades e serviços
 
 **BR-04.** Médicos e serviços possuem estado ativo/inativo.
